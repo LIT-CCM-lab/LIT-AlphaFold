@@ -1,0 +1,6 @@
+parm 10987_dyn_103.psf
+trajin 10981_trj_103.xtc 1 1000 200
+strip :TIP3,ITD,POPC
+strip :SOD,CLA
+trajout MD_templates/3ODU.pdb pdb chainid multi pdbv3
+run

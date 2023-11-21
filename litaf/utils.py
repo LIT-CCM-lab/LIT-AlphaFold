@@ -10,8 +10,6 @@ import pickle
 import numpy as np
 from alphafold.data import parsers
 from colabfold.alphafold.models import load_models_and_params
-from alphapulldown.utils import check_empty_templates
-from litaf_development.objects import MultimericObject
 
 
 def read_all_proteins(fasta_path) -> list:
@@ -166,19 +164,3 @@ def setup_logging(log_file):
                         level = logging.INFO,
                         filemode='a',)
     absl_logging.set_verbosity(absl_logging.INFO)
-
-def load_monomer_objects(monomer_dir_dict, protein_name):
-    """
-    a function to load monomer an object from its pickle
-
-    args
-    monomer_dir_dict: a dictionary recording protein_name and its directory. created by make_dir_monomer_dictionary()
-    """
-    target_path = monomer_dir_dict[f"{protein_name}.pkl"]
-    target_path = os.path.join(target_path, f"{protein_name}.pkl")
-    monomer = pickle.load(open(target_path, "rb"))
-    if isinstance(monomer, MultimericObject):
-        return monomer
-    if check_empty_templates(monomer.feature_dict):
-        monomer.feature_dict = mk_mock_template(monomer.feature_dict)
-    return monomer

@@ -22,6 +22,7 @@ import yaml
 import alphafold
 from alphafold.data.tools import hmmsearch, hhsearch
 from alphafold.data import templates
+from alphafold import run_alphafold as run_af
 
 from colabfold.utils import DEFAULT_API_SERVER
 from colabfold.batch import mk_hhsearch_db
@@ -31,14 +32,13 @@ from alphapulldown.utils import (
     load_monomer_objects,
     save_meta_data,
     create_uniprot_runner,
-    get_run_alphafold,
     parse_fasta
 )
 
-from litaf_development.objects import MonomericObject, MonomericObjectMmseqs2
-from litaf_development.filterpdb import load_template_filter
-from litaf_development.pipeline import DataPipeline
-from litaf_development.utils import setup_logging
+from litaf.objects import MonomericObject, MonomericObjectMmseqs2
+from litaf.filterpdb import load_template_filter
+from litaf.pipeline import DataPipeline
+from litaf.utils import setup_logging
 
 @contextlib.contextmanager
 def output_meta_file(file_path):
@@ -46,7 +46,6 @@ def output_meta_file(file_path):
     with open(file_path, "w") as outfile:
         yield outfile.name
 
-run_af = get_run_alphafold()
 
 flags = run_af.flags
 flags.DEFINE_bool("save_msa_files", False,
@@ -80,10 +79,18 @@ flags.DEFINE_bool('paired_msa', True,
                   "Search Uniprot for sequences for paired MSA generation"
 )
 
+delattr(flags.FLAGS, "data_dir")
+flags.DEFINE_string("data_dir", None, "Path to database directory")
+
 FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 20
 
 flags_dict = FLAGS.flag_values_dict()
+
+global pdb70_database_path
+global template_mmcif_dir
+pdb70_database_path = None
+template_mmcif_dir = None
 
 def create_global_arguments(flags_dict):
     global uniref90_database_path
@@ -398,7 +405,17 @@ def main(argv):
                     " the same folder now.")
 
     flags_dict = FLAGS.flag_values_dict()
-    create_global_arguments(flags_dict)
+    if FLAGS.data_dir is not None:
+        create_global_arguments(flags_dict)
+    elif FLAGS.use_mmseqs2 is False:
+        raise ValueError('No indication for genetic database, \
+                                please set a value for data_dir or \
+                                set use_mmseqs2 to True')
+    elif FLAGS.use_mmseqs2_templates is False:
+        raise ValueError('No indication for template database, \
+                                please set a value for data_dir or \
+                                set use_mmseqs2_templates to True')
+        
 
     if FLAGS.custom_template_path:
         ff_appendix = ['_a3m.ffdata', 
@@ -469,6 +486,6 @@ def main(argv):
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
-        ["fasta_paths", "output_dir","max_template_date","data_dir"]
+        ["fasta_paths", "output_dir","max_template_date"]
     )
     app.run(main)

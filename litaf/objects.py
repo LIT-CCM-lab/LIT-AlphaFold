@@ -18,6 +18,7 @@ import tempfile
 import os
 import contextlib
 import random
+import pickle
 from pathlib import Path as plPath
 
 import numpy as np
@@ -40,12 +41,14 @@ from colabfold.batch import (get_queries,
                             mk_hhsearch_db)
 from colabfold.utils import DEFAULT_API_SERVER
 
-from alphapulldown.utils import mk_mock_template
+from alphapulldown.utils import mk_mock_template, check_empty_templates
 
 from litaf.utils import remove_msa_for_template_aligned_regions
-from litaf_development.filterpdb import filter_template_hits, generate_filter
-from litaf_development.pipeline import make_msa_features, DataPipeline
-from litaf_development.datatypes import *
+from litaf.filterpdb import filter_template_hits, generate_filter
+from litaf.pipeline import make_msa_features, DataPipeline
+from litaf.datatypes import *
+
+USER_AGENT = 'LIT-AlphaFold/v1.0 https://github.com/LIT-CCM-lab/LIT-AlphaFold'
 
 
 @contextlib.contextmanager
@@ -55,6 +58,22 @@ def temp_fasta_file(sequence_str):
         fasta_file.write(sequence_str)
         fasta_file.seek(0)
         yield fasta_file.name
+
+def load_monomer_objects(monomer_dir_dict, protein_name):
+    """
+    a function to load monomer an object from its pickle
+
+    args
+    monomer_dir_dict: a dictionary recording protein_name and its directory. created by make_dir_monomer_dictionary()
+    """
+    target_path = monomer_dir_dict[f"{protein_name}.pkl"]
+    target_path = os.path.join(target_path, f"{protein_name}.pkl")
+    monomer = pickle.load(open(target_path, "rb"))
+    if isinstance(monomer, MultimericObject):
+        return monomer
+    if check_empty_templates(monomer.feature_dict):
+        monomer.feature_dict = mk_mock_template(monomer.feature_dict)
+    return monomer
 
 
 class MonomericObject:
@@ -542,11 +561,11 @@ class MonomericObjectMmseqs2(MonomericObject):
         pdb70_database_path: str
             File containing the pdb70 database
         '''
-        
+
         use_templates = True if templates_path else False
         if templates_path == 'mmseqs2':
-            mmcif_path = os.path.join(output_dir, f'{self.description}_env','templates_101')
-            pdb70_path = os.path.join(output_dir, f'{self.description}_env','templates_101', 'pdb70')
+            mmcif_path = os.path.join(output_dir, f'{self.description}_all','templates_101')
+            pdb70_path = os.path.join(output_dir, f'{self.description}_all','templates_101', 'pdb70')
         elif templates_path == 'local' and template_mmcif_dir and pdb70_database_path:
             mmcif_path = template_mmcif_dir
             pdb70_path = pdb70_database_path
@@ -593,12 +612,14 @@ class MonomericObjectMmseqs2(MonomericObject):
             ) = get_msa_and_templates(
                 jobname=self.description,
                 query_sequences=self.sequence,
+                a3m_lines=a3m_lines,
                 result_dir=plPath(result_dir),
                 msa_mode=msa_mode,
-                use_templates=use_templates,
+                use_templates=templates_path == 'mmseqs2',
                 custom_template_path=None,
                 pair_mode="paired",
                 host_url=DEFAULT_API_SERVER,
+                user_agent=USER_AGENT,
             )
             msa = msa_to_str(
                 unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality
@@ -1124,12 +1145,14 @@ class MultimericObject:
             ) = get_msa_and_templates(
                 jobname=self.description,
                 query_sequences=self.sequence,
+                a3m_lines=paired_msa,
                 result_dir=plPath(result_dir),
                 msa_mode=msa_mode,
                 use_templates=False,
                 custom_template_path=None,
                 pair_mode="paired",
                 host_url=DEFAULT_API_SERVER,
+                user_agent=USER_AGENT,
             )
             #msa = msa_to_str(unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality)
             #plPath(os.path.join(result_dir,self.description + ".a3m")).write_text(msa)

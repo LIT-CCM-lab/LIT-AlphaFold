@@ -18,14 +18,11 @@ import logging
 from alphapulldown.utils import (make_dir_monomer_dictionary,
                                     check_empty_templates)
 
-from litaf_development.utils import (create_colabfold_runners,
+from litaf.utils import (create_colabfold_runners,
                                     read_custom,
                                     read_all_proteins,
-                                    obtain_options,
-                                    load_monomer_objects,)
-from litaf_development.objects import MultimericObject, ChoppedObject
-
-
+                                    obtain_options,)
+from litaf.objects import MultimericObject, ChoppedObject, load_monomer_objects
 
 def create_interactors(data,
             monomer_objects_dir,

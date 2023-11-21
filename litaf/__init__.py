@@ -13,7 +13,7 @@ Package containing the code to run LIT-AF, the Laboratoire d'Innovation Therapeu
 import litaf.create_input
 import litaf.objects
 import litaf.predict_structure
-import litaf.querypdb
+import litaf.filterpdb
 import litaf.utils
 import litaf.datatypes
 import litaf.pipeline
