@@ -1,0 +1,15 @@
+name: lit-af
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.10
+  - cudnn==8.2.1.32
+  - cudatoolkit==11.6.0
+  - openmm==7.7.0
+  - pdbfixer
+  - kalign2=2.04
+  - hhsuite=3.3.0
+  - mmseqs2=14.7e284
+  - git
+  - pip
