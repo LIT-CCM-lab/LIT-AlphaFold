@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: litaf
+Version: 1.0
+Summary: Package for customization of input data for AlphaFold and AlphaFold-Multimer
+Home-page: https://github.com/LIT-CCM-lab/LIT-AlphaFold
+Author: Luca Chiesa
+Author-email: luca.chiesa@unistra.com
+Requires-Dist: colabfold==1.5.3

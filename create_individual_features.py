@@ -32,13 +32,12 @@ from alphapulldown.utils import (
     load_monomer_objects,
     save_meta_data,
     create_uniprot_runner,
-    parse_fasta
 )
 
 from litaf.objects import MonomericObject, MonomericObjectMmseqs2
 from litaf.filterpdb import load_template_filter
 from litaf.pipeline import DataPipeline
-from litaf.utils import setup_logging
+from litaf.utils import setup_logging, iter_seqs
 
 @contextlib.contextmanager
 def output_meta_file(file_path):
@@ -388,12 +387,7 @@ def filter_and_save_monomer_object(monomer: MonomericObject, filters: dict,
             yaml.dump(monomer.filter_pdb_results, yaml_file)
         monomer.description = old_description
 
-def iter_seqs(fasta_fns):
-    for fasta_path in fasta_fns:
-        with open(fasta_path, "r") as f:
-            sequences, descriptions = parse_fasta(f.read())
-            for seq, desc in zip(sequences, descriptions):
-                yield seq, desc
+
 
 def main(argv):
     try:

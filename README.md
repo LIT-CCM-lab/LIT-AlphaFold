@@ -4,11 +4,13 @@
 
 LIT-AlphaFold is a modified version of AlphaFold developed in the [Laboratoire d'Innovation Thérapeutique](https://medchem.unistra.fr/)(LIT) at the University of Strasbourg.
 
-The module is based on [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown) and [ColabFold](https://github.com/sokrypton/ColabFold). LIT-AlphaFold includes options to modify both the templates and the multiple sequences alignement (MSA) used by AlphaFold to predict different protein conformational states, with a focus on GPCRs.
+LIT-AlphaFold combines features from [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown) and [ColabFold](https://github.com/sokrypton/ColabFold), while including additional tools for multistate modelling.
+
+The templates and the multiple sequences alignement (MSA) used by AlphaFold for structure prediction can be modified to obtain different conformational state than the one predicted by default AlphaFold.
 
 ## Pre-installation
 
-Before installing LIT-AlphaFold it is adviced to download AlphaFold' s weights and the related genetic databases. To do so please follow the instructions in https://github.com/kalininalab/alphafold_non_docker.
+Before installing LIT-AlphaFold we advice to download AlphaFold's weights and the related genetic databases. To do so please follow the instructions in https://github.com/kalininalab/alphafold_non_docker.
 
 LIT-AlphaFold **does not** require to download the genetic databases since it is configured to also use the *MMseqs2* webserver for MSA generation, as in ColabFold. 
 The models' weights **must** be downloaded since LIT-AlphaFold has been developed to run calculations locally.
@@ -36,13 +38,13 @@ pip install https://storage.googleapis.com/jax-releases/cuda11/jaxlib-0.3.25+cud
 pip install jax==0.3.25 chex==0.1.6 biopython==1.79
 ```
 
-## Usage
+## How to use
 
-We propose different tutorials covering the main aspect of protein structure prediction covered by LIT-AlphaFold in the project's Wiki.
+The project's [Wiki](https://github.com/LIT-CCM-lab/LIT-AlphaFold/wiki) contains multiple tutorials covering the main tools available in LIT-AlphaFold.
 
 
 ## How to reference this work ?
-If you are using LIT-AF please cite:
+If you are using **LIT-AlphaFold** please cite:
 - Urvas L, Chiesa L, Bret G, Jaquemard C, and Kellenberger E.  <br />
   Benchmarking AlphaFold-generated structures of chemokine – chemokine receptor complexes. <br />
   Manuscript under review
@@ -67,6 +69,7 @@ To cite specific methods from multistate structure prediction please use the ref
 
 ## Roadmap
 Future releases might include:
+* Google Colab implementation
 * User defined MSA for monomers
 * User defined MSA for multimers
-* MSA clustering
+* [MSA clustering](https://www.nature.com/articles/s41586-023-06832-9)

@@ -24,6 +24,66 @@ from litaf.utils import (create_colabfold_runners,
                                     obtain_options,)
 from litaf.objects import MultimericObject, ChoppedObject, load_monomer_objects
 
+def create_interactors_colab(data,
+            monomer_objects_dict,
+            remove_msa,
+            remove_template_msa,
+            remove_templates,
+            shuffle_templates,
+            paired_msa = False,
+            unpaired_msa = True) -> list:
+
+    """
+    Generates and modifies monomeric objects used for prediction by the colab
+    version of LIT-AlphaFold
+
+    Parameters
+    ----------
+    data: dict
+        Dictionary contining the inputs
+    pair_msa: bool, default = True
+        Generates paired MSA for multimer prediction
+    monomer_objects_dir: str or list
+        Direcotries containing the monomer pickle objects
+    remove_msa: bool
+        Remove MSA features from all interactors
+    remove_template_msa: bool
+        Remove MSA in template aligned regions for all interactors
+    remove_templates: bool
+        Remove template features from all interactors
+    mutate_msa: bool
+        Mutate the monomer MSA in specific positions for all interactors
+    remove_msa_region: bool
+        Remove a specific region of the monomeric MSA for all interactors
+    remove_templates: bool
+        Remove template featrues for all interactors 
+
+    Return
+    ------
+    Monomers prepared for prediction and processing: list of MonomericObject
+    """
+    
+    interactors = []
+    for d in data:
+        logging.info(f"Processing {d['protein_name']}")
+        monomer = monomer_objects_dict[d['protein_name']]
+
+        if isinstance(monomer, MultimericObject):
+            return [monomer]
+
+        monomer = modify_monomer(d,
+                    monomer,
+                    remove_msa,
+                    remove_template_msa,
+                    remove_templates,
+                    False,
+                    False,
+                    shuffle_templates,
+                    paired_msa = False,
+                    unpaired_msa = True)
+        interactors.append(monomer)
+    return interactors
+
 def create_interactors(data,
             monomer_objects_dir,
             remove_msa,
@@ -71,70 +131,93 @@ def create_interactors(data,
         if isinstance(monomer, MultimericObject):
             return [monomer]
 
-        if d.get('selected_residues'):
-            logging.info(
-                f"creating chopped monomer with residues" \
-                f"{d.get('selected_residues')}"
-                )
-            monomer = ChoppedObject(
-                        monomer.description,
-                        monomer.sequence,
-                        monomer.feature_dict,
-                        d.get('selected_residues'),
-                    )
-            monomer.prepare_final_sliced_feature_dict()
-
-        if d.get('remove_msa_region'):
-            logging.info(
-                f"removing MSA data from the regions " \
-                f"{d.get('remove_msa_region')}")
-            monomer.remove_msa_region(d.get('remove_msa_region'),
-                inplace = True,
-                paired = paired_msa,
-                unpaired = unpaired_msa)
-        elif remove_msa_region:
-            msa_region_string = ','.join(
-                [f'{i}-{j}' for i,j in remove_msa_region]
-                )
-            logging.info(
-                f'removing MSA data from the regions {msa_region_string}'
-                )
-            monomer.remove_msa_region(remove_msa_region,
-                                        inplace = True,
-                                        paired = paired_msa,
-                                        unpaired = unpaired_msa)
-
-        if d.get('mutate_msa'):
-            logging.info(f"Mutating MSA as: {d.get('mutate_msa')}")
-            monomer.mutate_msa(d.get('mutate_msa'),
-                                inplace = True,
-                                paired = paired_msa,
-                                unpaired = unpaired_msa)
-        elif mutate_msa:
-            logging.info(f'Mutating MSA as: {mutate_msa}')
-            monomer.mutate_msa(mutate_msa,
-                                inplace = True,
-                                paired = paired_msa,
-                                unpaired = unpaired_msa)
-
-        if d.get('remove_msa_templates') or remove_template_msa:
-            logging.info(f'Removing template information from the MSA')
-            monomer.remove_template_from_msa(inplace = True)
-
-        if d.get('remove_monomer_msa') or remove_msa:
-            logging.info(f'Removing monomer MSA')
-            monomer.remove_msa_features(inplace = True)
-
-        if d.get('remove_templates') or remove_templates:
-            logging.info(f'Removing template data')
-            monomer.remove_templates(inplace = True)
-
-        if d.get('shuffle_templates') or shuffle_templates:
-            logging.info(f'Shuffling templates')
-            monomer.shuffle_templates(inplace = True)
+        monomer = modify_monomer(d,
+                    monomer,
+                    remove_msa,
+                    remove_template_msa,
+                    remove_templates,
+                    mutate_msa,
+                    remove_msa_region,
+                    shuffle_templates,
+                    paired_msa ,
+                    unpaired_msa)
 
         interactors.append(monomer)
     return interactors
+
+def modify_monomer(d,
+                    monomer,
+                    remove_msa,
+                    remove_template_msa,
+                    remove_templates,
+                    mutate_msa,
+                    remove_msa_region,
+                    shuffle_templates,
+                    paired_msa = False,
+                    unpaired_msa = True):
+    if d.get('selected_residues'):
+        logging.info(
+            f"creating chopped monomer with residues" \
+            f"{d.get('selected_residues')}"
+            )
+        monomer = ChoppedObject(
+                    monomer.description,
+                    monomer.sequence,
+                    monomer.feature_dict,
+                    d.get('selected_residues'),
+                )
+        monomer.prepare_final_sliced_feature_dict()
+
+    if d.get('remove_msa_region'):
+        logging.info(
+            f"removing MSA data from the regions " \
+            f"{d.get('remove_msa_region')}")
+        monomer.remove_msa_region(d.get('remove_msa_region'),
+            inplace = True,
+            paired = paired_msa,
+            unpaired = unpaired_msa)
+    elif remove_msa_region:
+        msa_region_string = ','.join(
+            [f'{i}-{j}' for i,j in remove_msa_region]
+            )
+        logging.info(
+            f'removing MSA data from the regions {msa_region_string}'
+            )
+        monomer.remove_msa_region(remove_msa_region,
+                                    inplace = True,
+                                    paired = paired_msa,
+                                    unpaired = unpaired_msa)
+
+    if d.get('mutate_msa'):
+        logging.info(f"Mutating MSA as: {d.get('mutate_msa')}")
+        monomer.mutate_msa(d.get('mutate_msa'),
+                            inplace = True,
+                            paired = paired_msa,
+                            unpaired = unpaired_msa)
+    elif mutate_msa:
+        logging.info(f'Mutating MSA as: {mutate_msa}')
+        monomer.mutate_msa(mutate_msa,
+                            inplace = True,
+                            paired = paired_msa,
+                            unpaired = unpaired_msa)
+
+    if d.get('remove_msa_templates') or remove_template_msa:
+        logging.info(f'Removing template information from the MSA')
+        monomer.remove_template_from_msa(inplace = True)
+
+    if d.get('remove_monomer_msa') or remove_msa:
+        logging.info(f'Removing monomer MSA')
+        monomer.remove_msa_features(inplace = True)
+
+    if d.get('remove_templates') or remove_templates:
+        logging.info(f'Removing template data')
+        monomer.remove_templates(inplace = True)
+
+    if d.get('shuffle_templates') or shuffle_templates:
+        logging.info(f'Shuffling templates')
+        monomer.shuffle_templates(inplace = True)
+
+    return monomer
 
 
 def create_multimer_objects(

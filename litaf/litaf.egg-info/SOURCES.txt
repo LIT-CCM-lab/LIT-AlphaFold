@@ -1,0 +1,15 @@
+setup.py
+litaf/__init__.py
+litaf/create_input.py
+litaf/datatypes.py
+litaf/filterpdb.py
+litaf/objects.py
+litaf/pipeline.py
+litaf/predict_structure.py
+litaf/utils.py
+litaf.egg-info/PKG-INFO
+litaf.egg-info/SOURCES.txt
+litaf.egg-info/dependency_links.txt
+litaf.egg-info/not-zip-safe
+litaf.egg-info/requires.txt
+litaf.egg-info/top_level.txt
