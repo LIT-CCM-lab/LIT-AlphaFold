@@ -8,9 +8,12 @@ import logging
 import pickle
 
 import numpy as np
+import matplotlib.pyplot as plt
 from alphafold.data import parsers
 from colabfold.alphafold.models import load_models_and_params
 from alphapulldown.utils import parse_fasta
+from alphafold.common import residue_constants
+
 
 
 def read_all_proteins(fasta_path) -> list:
@@ -119,6 +122,13 @@ def create_colabfold_runners(
     use_cluster_profile: bool,
     save_all: bool,
     ) -> list:
+
+    if model_suffix == '_ptm':
+        rank_by = 'plddt'
+    elif model_suffix == '_multimer_v3':
+        rank_by = 'multimer'
+    else:
+        raise ValueError(f"Unrecognized model type with suffix: {model_suffix}")
     
     model_runners_tmp = load_models_and_params(num_models = num_models,
                                                 use_templates = use_templates,
@@ -129,7 +139,8 @@ def create_colabfold_runners(
                                                 max_extra_seq=max_extra_seq,
                                                 use_dropout=use_dropout,
                                                 use_cluster_profile=use_cluster_profile,
-                                                save_all=save_all,)
+                                                save_all=save_all,
+                                                rank_by=rank_by,)
     model_runners = {}
     for mr in model_runners_tmp:
         for i in range(num_pred):
@@ -172,3 +183,58 @@ def iter_seqs(fasta_fns):
             sequences, descriptions = parse_fasta(f.read())
             for seq, desc in zip(sequences, descriptions):
                 yield seq, desc
+
+def encode_seqs(seqs):
+    arr = np.zeros([len(seqs), seqs.shape[1], 22])
+    for i,seq in enumerate(seqs):
+        for j, aa in enumerate(seq):
+            arr[i,j,aa] += 1
+
+    return arr.reshape([len(seqs), seqs.shape[1]*22])
+
+
+def decode_ohe_seqs(ohe_seqs):
+    ohe_seqs = ohe_seqs.reshape([len(ohe_seqs), ohe_seqs.shape[1]/22, 22])
+    arr = np.zeros([ohe_seqs[0], ohe_seqs[1]])
+    for i, ohe_seq in enumerate(ohe_seqs):
+        for j, ohe_aa in enumerate(ohe_seq):
+            arr[i, j] = np.argmax(ohe_aa)
+
+    return arr
+
+def consensusVoting(seqs):
+    ## Find the consensus sequence
+    ## Modified from https://github.com/HWaymentSteele/AF_Cluster/blob/main/scripts/utils.py
+    consensus = ""
+    residues = "ACDEFGHIKLMNPQRSTVWY-"
+    n_chars = len(seqs[0])
+    for i in range(n_chars):
+        baseArray = [x[i] for x in seqs]
+        baseCount = np.zeros(22)
+        for a, idx in residue_constants.HHBLITS_AA_TO_ID.items():
+            baseCount[idx] += baseArray.count(a)
+        vote = np.argmax(baseCount)
+        consensus += residue_constants.ID_TO_HHBLITS_AA[vote]
+
+    return consensus
+
+def to_string_seq(seq):
+    str_seq = ''
+    for aa in seq:
+        str_seq += residue_constants.ID_TO_HHBLITS_AA[aa]
+
+    return str_seq
+
+
+def plot_msa_landscape(x, y, qx, qy, labels, x_label, y_label):
+    fig, ax = plt.subplots(figsize=(5,5))
+    ax.scatter(x[labels == -1], y[labels == -1], color='lightgray', marker='x', label='unclustered')
+    ax.scatter(x[labels != -1], y[labels != -1], c=labels[labels != -1], marker='o')
+    ax.scatter(qx,qy, color='red', marker='*', s=150, label='Ref Seq')
+    ax.scatter(x[0],y[0], color='blue', marker='*', s=50, label='Best Seq')
+    plt.legend()
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    plt.tight_layout()
+
+    return fig

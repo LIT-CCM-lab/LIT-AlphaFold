@@ -10,6 +10,7 @@ dependencies:
   - pdbfixer
   - kalign2=2.04
   - hhsuite=3.3.0
+  - hmmer
   - mmseqs2=14.7e284
   - git
   - pip

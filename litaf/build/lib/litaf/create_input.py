@@ -24,7 +24,7 @@ from litaf.utils import (create_colabfold_runners,
                                     obtain_options,)
 from litaf.objects import MultimericObject, ChoppedObject, load_monomer_objects
 
-def creat_interactors_colab(data,
+def create_interactors_colab(data,
             monomer_objects_dict,
             remove_msa,
             remove_template_msa,
@@ -145,7 +145,7 @@ def create_interactors(data,
         interactors.append(monomer)
     return interactors
 
-def modify_interactor(d,
+def modify_monomer(d,
                     monomer,
                     remove_msa,
                     remove_template_msa,

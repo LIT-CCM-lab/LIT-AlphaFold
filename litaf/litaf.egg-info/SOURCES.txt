@@ -1,5 +1,6 @@
 setup.py
 litaf/__init__.py
+litaf/cluster.py
 litaf/create_input.py
 litaf/datatypes.py
 litaf/filterpdb.py

@@ -51,10 +51,12 @@ from litaf.datatypes import *
 #Added for MSA clustering
 from polyleven import levenshtein
 from sklearn.cluster import DBSCAN
+from sklearn.decomposition import PCA
 from litaf.utils import (encode_seqs,
                         decode_ohe_seqs,
                         consensusVoting,
-                        plot_seq_landscape)
+                        plot_msa_landscape,
+                        to_string_seq)
 
 USER_AGENT = 'LIT-AlphaFold/v1.0 https://github.com/LIT-CCM-lab/LIT-AlphaFold'
 
@@ -488,7 +490,7 @@ class MonomericObject:
         eps_test_vals=np.arange(min_eps, max_eps+step_eps, step_eps)
         n_seqs = self.feature_dict['msa'].shape[0]
         for eps in eps_test_vals:
-            test_idxs = np.random.Generator.integers(0, nseqs, size = int(0.25 * nseqs))
+            test_idxs = np.random.choice(n_seqs, size = int(0.25 * n_seqs), replace = False)
             testset = encode_seqs(self.feature_dict['msa'][test_idxs])
             clustering = DBSCAN(eps=eps, min_samples=min_samples).fit(testset)
             n_clust = len(set(clustering.labels_))
@@ -506,7 +508,7 @@ class MonomericObject:
         UNTESTED FEATURE
         '''
         nl = '\n'
-        L = self.feature_dict['msa'].shape[1]
+        L = self.feature_dict['seq_length'][0]
         ohe_seqs = encode_seqs(self.feature_dict['msa'])
         logging.info(f"Performing MSA clustering using eps {eps_val} and min_samples {min_samples}")
         clustering = DBSCAN(eps=eps_val, min_samples=min_samples).fit(ohe_seqs)
@@ -514,36 +516,44 @@ class MonomericObject:
         self.msa_cluster_labels = clustering.labels_
 
         cluster_feature_dict = {}
-        for clst in range(clustering.n_clusters+1):
-            cluster_msa = ohe_seqs[clustering.labels_ == clst]
-            cs = consensusVoting(cluster_msa)
+        for clst in range(max(clustering.labels_)+1):
+            cluster_msa = [to_string_seq(x) for x in self.feature_dict['msa'][clustering.labels_ == clst]]
+            cs = consensusVoting(ohe_seqs[clustering.labels_ == clst])
             avg_dist_to_cs = np.mean([1-levenshtein(x,cs)/L for x in cluster_msa])
-            avg_dist_to_query = np.mean([1-levenshtein(x,self.feature_dict['sequence'])/L for x in cluster_msa])
+            avg_dist_to_query = np.mean([1-levenshtein(x,self.feature_dict['sequence'][0].decode("utf-8"))/L for x in cluster_msa])
             logging.info(f"Generated cluster {clst} with consensus sequence:{nl}{cs}{nl}"
                 f"Average distance from consensus sequence: {avg_dist_to_cs}{nl}"
                 f"Average distance from query sequence: {avg_dist_to_query}{nl}")
-            cluster_deletion_matrix = self.feature_dict['deletion_matrix_int'][clustering.labels_ == clst]
-            cluster_feature_dict[clst] = self.feature_dict.copy().update({'msa': decode_ohe_seqs(cluster_msa),
-                                                                        'deletion_matrix_int': cluster_deletion_matrix})
+            cluster_deletion_matrix = self.feature_dict['deletion_matrix_int'][clustering.labels_ == clst].copy()
+            cluster_num_alignements = np.array([len(cluster_msa) for _ in self.feature_dict['num_alignments']])
+            out_dict = self.feature_dict.copy()
+            out_dict.update({'msa': self.feature_dict['msa'][clustering.labels_ == clst],
+                            'deletion_matrix_int': cluster_deletion_matrix,
+                            'num_alignments': cluster_num_alignements})
+            cluster_feature_dict[clst] = out_dict
 
-        unclustered_seqs = ohe_seqs[clustering.labels_ == -1]
-        avg_dist_to_query = np.mean([1-levenshtein(x,self.feature_dict['sequence'])/L for x in unclustered_seqs])
-        logging.info(f"DBSCAN generated {len(unclustered_seqs)} unclustered sequences, with average distance from the query {avg_dist_to_query}")
+        if -1 in clustering.labels_:
+            unclustered_seqs = self.feature_dict['msa'][clustering.labels_ == -1]
+            avg_dist_to_query = np.mean([1-levenshtein(to_string_seq(x),self.feature_dict['sequence'][0].decode("utf-8"))/L for x in unclustered_seqs])
+            logging.info(f"DBSCAN generated {len(unclustered_seqs)} unclustered sequences, with average distance from the query {avg_dist_to_query}")
 
         return cluster_feature_dict
 
     def plot_msa_pca(self):
         ohe_seqs = encode_seqs(self.feature_dict['msa'])
-        mdl = PCA()
-        embedding = mdl.fit_transform(ohe_vecs)
-        query_embedding = mdl.transform(encode_seqs(self.feature_dict['msa'][0]))
+        mdl = PCA(n_components=2)
+        embedding = mdl.fit_transform(ohe_seqs)
+        query_embedding = mdl.transform(residue_constants.sequence_to_onehot(
+          sequence=self.feature_dict['sequence'][0].decode("utf-8"),
+          mapping=residue_constants.HHBLITS_AA_TO_ID,
+          map_unknown_to_x=True).reshape((1,-1)))
 
-        if hasattr(self, msa_cluster_labels):
-            labels = clustering.labels_
+        if hasattr(self, 'msa_cluster_labels'):
+            labels = self.msa_cluster_labels
         else:
             labels = np.zeros(embedding.shape[0])
 
-        plot_msa_lanscape(embedding[0], embedding[1], query_embedding[0], query_embedding[1], labels,'PCA 1', 'PCA 2')
+        plot_msa_landscape(embedding[:,0], embedding[:,1], query_embedding[:,0], query_embedding[:,1], labels,'PCA 1', 'PCA 2')
 
     def shuffle_templates(self, inplace = False):
         '''Shuffle tempaltes

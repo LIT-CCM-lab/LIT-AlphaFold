@@ -48,6 +48,16 @@ from litaf.filterpdb import filter_template_hits, generate_filter
 from litaf.pipeline import make_msa_features, DataPipeline
 from litaf.datatypes import *
 
+#Added for MSA clustering
+from polyleven import levenshtein
+from sklearn.cluster import DBSCAN
+from sklearn.decomposition import PCA
+from litaf.utils import (encode_seqs,
+                        decode_ohe_seqs,
+                        consensusVoting,
+                        plot_msa_landscape,
+                        to_string_seq)
+
 USER_AGENT = 'LIT-AlphaFold/v1.0 https://github.com/LIT-CCM-lab/LIT-AlphaFold'
 
 
@@ -473,6 +483,77 @@ class MonomericObject:
             self.description += f'_removed_msa_region_{p}{u}_' + '_'.join([f'{idx1+1}-{idx2+1}' for idx1, idx2 in regions])
 
         return new_feature_dict
+
+    def scan_cluster_msa(self, min_eps, max_eps, step_eps, min_samples):
+        logging.info("Performing scanning before MSA clustering")
+        n_clusters=[]
+        eps_test_vals=np.arange(min_eps, max_eps+step_eps, step_eps)
+        n_seqs = self.feature_dict['msa'].shape[0]
+        for eps in eps_test_vals:
+            test_idxs = np.random.choice(n_seqs, size = int(0.25 * n_seqs), replace = False)
+            testset = encode_seqs(self.feature_dict['msa'][test_idxs])
+            clustering = DBSCAN(eps=eps, min_samples=min_samples).fit(testset)
+            n_clust = len(set(clustering.labels_))
+            n_not_clustered = len(clustering.labels_[np.where(clustering.labels_==-1)])
+            logging.info(f"eps: {eps}; number of clusters: {n_clust}; unclustered sequences: {n_not_clustered}")
+            n_clusters.append(n_clust)
+            if eps>10 and n_clust==1:
+                break
+
+        return self.cluster_msa(eps_test_vals[np.argmax(n_clusters)], min_samples)
+
+
+    def cluster_msa(self, eps_val, min_samples):
+        '''Perform MSA clustering and return single objects
+        UNTESTED FEATURE
+        '''
+        nl = '\n'
+        L = self.feature_dict['seq_length'][0]
+        ohe_seqs = encode_seqs(self.feature_dict['msa'])
+        logging.info(f"Performing MSA clustering using eps {eps_val} and min_samples {min_samples}")
+        clustering = DBSCAN(eps=eps_val, min_samples=min_samples).fit(ohe_seqs)
+
+        self.msa_cluster_labels = clustering.labels_
+
+        cluster_feature_dict = {}
+        for clst in range(max(clustering.labels_)+1):
+            cluster_msa = [to_string_seq(x) for x in self.feature_dict['msa'][clustering.labels_ == clst]]
+            cs = consensusVoting(ohe_seqs[clustering.labels_ == clst])
+            avg_dist_to_cs = np.mean([1-levenshtein(x,cs)/L for x in cluster_msa])
+            avg_dist_to_query = np.mean([1-levenshtein(x,self.feature_dict['sequence'][0].decode("utf-8"))/L for x in cluster_msa])
+            logging.info(f"Generated cluster {clst} with consensus sequence:{nl}{cs}{nl}"
+                f"Average distance from consensus sequence: {avg_dist_to_cs}{nl}"
+                f"Average distance from query sequence: {avg_dist_to_query}{nl}")
+            cluster_deletion_matrix = self.feature_dict['deletion_matrix_int'][clustering.labels_ == clst].copy()
+            cluster_num_alignements = np.array([len(cluster_msa) for _ in self.feature_dict['num_alignments']])
+            out_dict = self.feature_dict.copy()
+            out_dict.update({'msa': self.feature_dict['msa'][clustering.labels_ == clst],
+                            'deletion_matrix_int': cluster_deletion_matrix,
+                            'num_alignments': cluster_num_alignements})
+            cluster_feature_dict[clst] = out_dict
+
+        if -1 in clustering.labels_:
+            unclustered_seqs = self.feature_dict['msa'][clustering.labels_ == -1]
+            avg_dist_to_query = np.mean([1-levenshtein(to_string_seq(x),self.feature_dict['sequence'][0].decode("utf-8"))/L for x in unclustered_seqs])
+            logging.info(f"DBSCAN generated {len(unclustered_seqs)} unclustered sequences, with average distance from the query {avg_dist_to_query}")
+
+        return cluster_feature_dict
+
+    def plot_msa_pca(self):
+        ohe_seqs = encode_seqs(self.feature_dict['msa'])
+        mdl = PCA(n_components=2)
+        embedding = mdl.fit_transform(ohe_seqs)
+        query_embedding = mdl.transform(residue_constants.sequence_to_onehot(
+          sequence=self.feature_dict['sequence'][0].decode("utf-8"),
+          mapping=residue_constants.HHBLITS_AA_TO_ID,
+          map_unknown_to_x=True).reshape((1,-1)))
+
+        if hasattr(self, 'msa_cluster_labels'):
+            labels = self.msa_cluster_labels
+        else:
+            labels = np.zeros(embedding.shape[0])
+
+        plot_msa_landscape(embedding[:,0], embedding[:,1], query_embedding[:,0], query_embedding[:,1], labels,'PCA 1', 'PCA 2')
 
     def shuffle_templates(self, inplace = False):
         '''Shuffle tempaltes

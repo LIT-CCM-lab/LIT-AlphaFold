@@ -54,6 +54,10 @@ def make_msa_features(msas: Sequence[parsers.Msa],
           msa.descriptions[sequence_index])
       species_ids.append(identifiers.species_id.encode('utf-8'))
 
+  if all([s == b'' for s in species_ids]):
+    species_ids = [f'{i}'.encode('utf-8') for i in range(len(species_ids)-1)]
+    species_ids.insert(0, b'')
+
   num_res = len(msas[0].sequences[0])
   num_alignments = len(int_msa)
   features = {}
