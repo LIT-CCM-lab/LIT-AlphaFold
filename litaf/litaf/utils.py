@@ -226,15 +226,15 @@ def to_string_seq(seq):
     return str_seq
 
 
-def plot_msa_landscape(x, y, qx, qy, labels, x_label, y_label):
+def plot_msa_landscape(x, y, qx, qy, labels, ax_labels):
     fig, ax = plt.subplots(figsize=(5,5))
     ax.scatter(x[labels == -1], y[labels == -1], color='lightgray', marker='x', label='unclustered')
     ax.scatter(x[labels != -1], y[labels != -1], c=labels[labels != -1], marker='o')
     ax.scatter(qx,qy, color='red', marker='*', s=150, label='Ref Seq')
     ax.scatter(x[0],y[0], color='blue', marker='*', s=50, label='Best Seq')
     plt.legend()
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
+    ax.set_xlabel(ax_labels[0])
+    ax.set_ylabel(ax_labels[1])
     plt.tight_layout()
 
     return fig

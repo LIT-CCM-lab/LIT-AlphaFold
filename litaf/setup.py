@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='litaf',
-      version='1.0',
+      version='1.1',
       description='Package for customization of input data for AlphaFold and AlphaFold-Multimer',
       url='https://github.com/LIT-CCM-lab/LIT-AlphaFold',
       author='Luca Chiesa',

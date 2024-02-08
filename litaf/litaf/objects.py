@@ -52,6 +52,7 @@ from litaf.datatypes import *
 from polyleven import levenshtein
 from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 from litaf.utils import (encode_seqs,
                         decode_ohe_seqs,
                         consensusVoting,
@@ -539,7 +540,31 @@ class MonomericObject:
 
         return cluster_feature_dict
 
-    def plot_msa_pca(self):
+    def plot_msa_proj(self, method = 'PCA'):
+        '''Plot a 2D projection of the MSA based on distances between the sequences.
+        The plot is colored based on the clustering of the MSA.
+        '''
+        proj_methods = {'PCA': self.get_msa_pca, 'TSNE': self.get_msa_tsne}
+        embedding, query_embedding = proj_methods.get(method, self.get_msa_pca)()
+
+        if hasattr(self, 'msa_cluster_labels'):
+            labels = self.msa_cluster_labels
+        else:
+            labels = np.zeros(embedding.shape[0])
+
+        if method == 'TSNE':
+            ax_labels = ('', '')
+        else:
+            ax_labels = ('PCA 1', 'PCA 2')
+
+        plot_msa_landscape(embedding[:,0], embedding[:,1],
+                            query_embedding[:,0], query_embedding[:,1],
+                            labels, ax_labels)
+
+
+    def get_msa_pca(self):
+        '''Get MSA projection in PCA
+        '''
         ohe_seqs = encode_seqs(self.feature_dict['msa'])
         mdl = PCA(n_components=2)
         embedding = mdl.fit_transform(ohe_seqs)
@@ -548,12 +573,23 @@ class MonomericObject:
           mapping=residue_constants.HHBLITS_AA_TO_ID,
           map_unknown_to_x=True).reshape((1,-1)))
 
-        if hasattr(self, 'msa_cluster_labels'):
-            labels = self.msa_cluster_labels
-        else:
-            labels = np.zeros(embedding.shape[0])
+        return embedding, query_embedding
 
-        plot_msa_landscape(embedding[:,0], embedding[:,1], query_embedding[:,0], query_embedding[:,1], labels,'PCA 1', 'PCA 2')
+
+    def get_msa_tsne(self):
+        '''Get MSA projection in TSNE
+        '''
+        ohe_seqs = encode_seqs(self.feature_dict['msa'])
+        ohe_query = residue_constants.sequence_to_onehot(
+                      sequence=self.feature_dict['sequence'][0].decode("utf-8"),
+                      mapping=residue_constants.HHBLITS_AA_TO_ID,
+                      map_unknown_to_x=True).reshape((1,-1))
+        ohe_seqs_query = np.concatenate([ohe_query, ohe_seqs])
+        mdl = TSNE(n_components=2)
+        embedding = mdl.fit_transform(ohe_seqs_query)
+
+        return embedding[1:], embedding[0].reshape((1,-1))
+
 
     def shuffle_templates(self, inplace = False):
         '''Shuffle tempaltes

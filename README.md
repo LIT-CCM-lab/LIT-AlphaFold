@@ -37,6 +37,10 @@ pip install --no-warn-conflicts "colabfold[alphafold-minus-jax] @ git+https://gi
 pip install https://storage.googleapis.com/jax-releases/cuda11/jaxlib-0.3.25+cuda11.cudnn82-cp310-cp310-manylinux2014_x86_64.whl
 pip install jax==0.3.25 chex==0.1.6 biopython==1.79
 ```
+1. Install the *litaf* module
+```console
+pip install litaf/
+```
 
 ## How to use
 
@@ -72,4 +76,3 @@ Future releases might include:
 * Google Colab implementation
 * User defined MSA for monomers
 * User defined MSA for multimers
-* [MSA clustering](https://www.nature.com/articles/s41586-023-06832-9)
