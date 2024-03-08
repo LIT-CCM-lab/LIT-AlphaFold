@@ -389,7 +389,7 @@ class MonomericObject:
             <https://onlinelibrary.wiley.com/doi/full/10.1002/prot.26382>`__
 
         '''
-        logging.info('By using this tool please cite:\n\
+        logging.info('By using the tool "Template MSA removal" please cite:\n\
                 Heo, L, Feig, M.\n\
                 Multi-state modeling of G-protein coupled receptors at experimental accuracy.\n\
                 Proteins. 2022; 90(11): 1873-1885. doi:10.1002/prot.26382')
@@ -428,7 +428,7 @@ class MonomericObject:
             PLOS Computational Biology, 2022, 18.8: e1010483.
             <https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1010483>`__
         '''
-        logging.info('By using this tool please cite:\n\
+        logging.info('By using the tool "MSA point mutation" please cite:\n\
                 STEIN, Richard A.; MCHAOURAB, Hassane S.\n\
                 SPEACH_AF: Sampling protein ensembles and conformational heterogeneity with Alphafold2.\n\
                 PLOS Computational Biology, 2022, 18.8: e1010483. doi:10.1371/journal.pcbi.1010483')
@@ -508,6 +508,10 @@ class MonomericObject:
         '''Perform MSA clustering and return single objects
         UNTESTED FEATURE
         '''
+        logging.info('By using the tool "MSA cluster" please cite:\n\
+                Wayment-Steele H. K., et al.\n\
+                Predicting multiple conformations via sequence clustering and AlphaFold2.\n\
+                Nature. 2024; 625: 832-839. doi:10.1038/s41586-023-06832-9')
         nl = '\n'
         L = self.feature_dict['seq_length'][0]
         ohe_seqs = encode_seqs(self.feature_dict['msa'])
@@ -594,7 +598,7 @@ class MonomericObject:
     def shuffle_templates(self, inplace = False):
         '''Shuffle tempaltes
         '''
-        logging.info('By using this tool please cite:\n\
+        logging.info('By using the "Templat shuffle" tool please cite:\n\
             SALA Davide; HILDEBRAND Peter W.; and MEILER Jens\n\
             Biasing AlphaFold2 to predict GPCRs and kinases with user-defined functional or structural properties.\n\
             Frontiers Molecular Biosciences 10:1121962. doi: 10.3389/fmolb.2023.1121962')

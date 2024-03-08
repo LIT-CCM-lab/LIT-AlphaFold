@@ -58,40 +58,49 @@ def filter_template_hits(hits, query):
     filtered structures: str
     '''
     
-    database_search = {'GPCRdb': query_gpcrdb, 'Empty': empty_search}
+    database_search = {'GPCRdb_r': query_gpcrdb_r, 'GPCRdb_g': query_gpcrdb_g, 'Empty': empty_search}
 
     #search_function = database_search[query['database']] if query.get('database') in database_search else empty_search
     search_function = database_search.get(query.get('database', 'Empty'))
     reference_database(query.get('database', 'Empty'))
 
     filtered_hits = list()
+    excluded_hits = list()
+    excluded_query_hits = list()
     pdbs = list()
     check_duplicates = set()
 
     for hit in hits:
-        pdbid = hit.name[:4].upper()
-        file_name = hit.name.split()[0]
+        #pdbid = hit.name[:4].upper()
+        file_name = hit.name.split()[0].upper()
         if file_name.upper() in check_duplicates:
-            logging.info(f"EXCLUDED duplicate template: {file_name}")
             continue
         elif pdbid in query.get('excluded_pdb', []):
-            logging.info(f"EXCLUDED template: {file_name}")
+            excluded_hits.append(file_name)
             continue
         elif pdbid not in query.get('subset_pdb', []) and query.get('subset_pdb'):
-            logging.info(f"EXCLUDED template: {file_name}")
+            excluded_hits.append(file_name)
             continue
-        elif not search_function(pdbid, query):
-            logging.info(f"EXCLUDED template from query: {file_name}")
-            check_duplicates.add(file_name.upper())
+        elif not search_function(file_name, query):
+            excluded_query_hits.append(file_name)
+            check_duplicates.add(file_name)
             continue
         else:
             filtered_hits.append(hit)
             logging.info(f"Selected template: {file_name}")
-            check_duplicates.add(file_name.upper())
+            check_duplicates.add(file_name)
+    if len(excluded_hits) > 0:
+        logging.info(f"EXCLUDED templates: {' '.join(excluded_hits)}")
+    if len(excluded_query_hits) > 0:
+        logging.info(f"EXCLUDED templates: {' '.join(excluded_query_hits)}")
+    if len(excluded_hits) > 0 or len(excluded_query_hits) > 0:
+        logging.info(f"Ten best selected templates: {' '.join(filtered_hits[:10])}")
     return filtered_hits
 
 def reference_database(db):
-    if db == 'GPCRdb':
+    if db == 'GPCRdb_r':
+        logging.info('By using this tool please use the references in: https://gpcrdb.org/cite_gpcrdb')
+    if db == 'GPCRdb_g':
         logging.info('By using this tool please use the references in: https://gpcrdb.org/cite_gpcrdb')
 
 def generate_filter(hits):
@@ -129,7 +138,7 @@ def empty_search(pdbid, query):
     '''
     return True
 
-def query_gpcrdb(pdbid, query):
+def query_gpcrdb_r(pdbid_chain, query):
     '''
     Compare the entry for a specific PDBID on GPCRdb to the user defined parameters
 
@@ -150,6 +159,8 @@ def query_gpcrdb(pdbid, query):
     The PDBID structure matches the query requirements: bool
     '''
 
+    pdbid, chainid = pdbid_chain.split('_')
+
     url = f"http://gpcrdb.org/services/structure/{pdbid}/"
     r = requests.get( url )
     rj = r.json()
@@ -163,6 +174,8 @@ def query_gpcrdb(pdbid, query):
 
     if len(rj) != 0:
         #pdb.set_trace()
+        if rj["preferred_chain"] != chainid:
+            return False
         for key, item in query.items():
             if item is None:
                 continue
@@ -191,6 +204,75 @@ def query_gpcrdb(pdbid, query):
                             return False
                 elif key == 'excluded_protein':
                     if rj['excluded_protein'] in item:
+                        return False
+            elif key in rj:
+                if rj[key] not in item:
+                    return False
+        return True
+    else:
+        logging.info(f'PDBID: {pdbid} not in GPCRdb')
+        return False
+
+def query_gpcrdb_g(pdbid_chain, query):
+    '''
+    Compare the entry for a specific PDBID on GPCRdb/GProteindb to the user defined parameters
+    This tool focuses on G-protein, however only complexes bound to a receptor can currently be queried
+
+    The comparison is based on identity between the user selection.
+    Special attention is given to publication_date which removes all structures published after the given date the dae is in the YYYY-MM-DD format
+    resoultion is used to set a upper limit for the resoultion value in angstrom
+    The function returns True if the entry satisfies the results or False if a criteria is unmet or if the structures is not in GPCRdb
+
+    Parameters
+    ----------
+    pdbid: str
+        PDBID of the structure
+    query: dict
+        Criteria for the selected structure 
+
+    Return
+    ------
+    The PDBID structure matches the query requirements: bool
+    '''
+
+    pdbid, chainid = pdbid_chain.split('_')
+
+    url = f"http://gpcrdb.org/services/structure/{pdbid}/"
+    r = requests.get( url )
+    rj = r.json()
+
+    special = ['publication_date',
+                'resolution',
+                'excluded_protein',
+                'species']
+
+    if len(rj) != 0:
+        if rj.get("signalling_protein", None) is None:
+            return False
+        species = None
+        for e_values in rj["signalling_protein"]["data"].values:
+            if e_values["chain"] == chainid:
+                species = e_values["entry_name"].split('_')[1]
+        if species is None:
+            return False
+        for key, item in query.items():
+            if item is None:
+                continue
+            if key in special:
+                if key == 'publication_date':
+                    #pdb.set_trace()
+                    date = dt.strptime(item, "%Y-%m-%d")
+                    date_pdb = dt.strptime(rj[key], "%Y-%m-%d")
+                    if date < date_pdb:
+                        return False
+                elif key == 'resolution':
+                    if rj['resolution'] > item:
+                        return False
+                elif key == 'excluded_protein':
+                    if rj['excluded_protein'] in item:
+                        return False
+                elif key == 'species':
+                    if species != item:
                         return False
             elif key in rj:
                 if rj[key] not in item:

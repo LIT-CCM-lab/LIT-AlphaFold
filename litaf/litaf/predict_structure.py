@@ -17,7 +17,7 @@ import os
 import pickle
 import time
 import pdb
-from absl import logging
+import logging
 import numpy as np
 
 from alphafold.common import protein
