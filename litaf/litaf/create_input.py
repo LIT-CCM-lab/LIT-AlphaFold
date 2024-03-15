@@ -71,17 +71,16 @@ def create_interactors_colab(data,
         if isinstance(monomer, MultimericObject):
             return [monomer]
 
-        monomer = modify_monomer(d,
-                    monomer,
+        interactors.append(modify_monomer(d,
+                    monomer.copy(),
                     remove_msa,
                     remove_template_msa,
                     remove_templates,
                     False,
                     False,
                     shuffle_templates,
-                    paired_msa = False,
-                    unpaired_msa = True)
-        interactors.append(monomer)
+                    paired_msa,
+                    unpaired_msa))
     return interactors
 
 def create_interactors(data,

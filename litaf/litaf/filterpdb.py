@@ -99,9 +99,9 @@ def filter_template_hits(hits, query):
 
 def reference_database(db):
     if db == 'GPCRdb_r':
-        logging.info('By using this tool please use the references in: https://gpcrdb.org/cite_gpcrdb')
+        logging.info('By using GPCRdb please use the references in: https://gpcrdb.org/cite_gpcrdb')
     if db == 'GPCRdb_g':
-        logging.info('By using this tool please use the references in: https://gpcrdb.org/cite_gpcrdb')
+        logging.info('By using GPCRdb please use the references in: https://gpcrdb.org/cite_gpcrdb')
 
 def generate_filter(hits):
     '''

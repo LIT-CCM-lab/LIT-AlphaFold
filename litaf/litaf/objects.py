@@ -698,7 +698,6 @@ class MonomericObjectMmseqs2(MonomericObject):
             use_templates = False
 
         logging.info("You chose to calculate MSA with mmseq2")
-        logging.info("Debug version")
         keep_existing_results=True
         result_dir = output_dir
         result_zip = os.path.join(result_dir,self.description,".result.zip")

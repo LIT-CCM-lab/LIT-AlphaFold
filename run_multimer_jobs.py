@@ -17,7 +17,6 @@ import openmm
 import jax
 
 from alphafold import run_alphafold as run_af
-from alphapulldown.utils import create_and_save_pae_plots
 
 #run_af = get_run_alphafold()
 
@@ -131,7 +130,9 @@ unused_flags = (
 for flag in unused_flags:
     delattr(flags.FLAGS, flag)
 
+
 FLAGS = flags.FLAGS
+
 
 def predict_individual_jobs(
     multimer_object,
@@ -139,7 +140,6 @@ def predict_individual_jobs(
     model_runners: list,
     random_seed: int,
     save_multimer: bool = False,
-    pae_plots: bool = True
     ) -> None:
     '''Run AlphaFold predictions on a single object 
 
@@ -184,8 +184,6 @@ def predict_individual_jobs(
         seqs=multimer_object.input_seqs,
         allow_resume=FLAGS.allow_resume
     )
-    if pae_plots:
-        create_and_save_pae_plots(multimer_object, output_path)
 
 
 def predict_multimers(
@@ -217,6 +215,8 @@ def predict_multimers(
     if not FLAGS.cluster_profile:
         logging.info("Run preddiction without cluster profiling")
         run_description = run_description+'_noclusterprofile'
+    if FLAGS.max_seq is not None and FLAGS.max_extra_seq is not None:
+        run_description = run_description+f'_MSA-subsampling-{FLAGS.max_seq}:{FLAGS.max_extra_seq}'
     for obj in multimers:
         obj.description = obj.description+run_description
         if isinstance(obj, MultimericObject):
