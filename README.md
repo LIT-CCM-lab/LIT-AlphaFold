@@ -8,6 +8,8 @@ LIT-AlphaFold combines features from [AlphaPulldown](https://github.com/Kosinski
 
 The templates and the multiple sequences alignement (MSA) used by AlphaFold for structure prediction can be modified to obtain different conformational state than the one predicted by default AlphaFold.
 
+The pipeline is available for both local installation and online using [Google Colab](https://colab.research.google.com/github/LIT-CCM-lab/LIT-AlphaFold/blob/main/LIT-AlphaFold-Colab.ipynb)
+
 ## Pre-installation
 
 Before installing LIT-AlphaFold we advice to download AlphaFold's weights and the related genetic databases. To do so please follow the instructions in https://github.com/kalininalab/alphafold_non_docker.
@@ -46,6 +48,11 @@ pip install litaf/
 
 The project's [Wiki](https://github.com/LIT-CCM-lab/LIT-AlphaFold/wiki) contains multiple tutorials covering the main tools available in LIT-AlphaFold.
 
+Google Colab implementation of the tutorials are available:
+* [Monomer and Multistate predictions (Tutorial 1-4)](https://colab.research.google.com/github/LIT-CCM-lab/LIT-AlphaFold/blob/main/LIT-AlphaFold-Colab_Tutorial_Monomer.ipynb)
+* Homo-oligomer prediction (Tutorial 5)  **Coming soon**
+* Multimer predictions (Tutorial 5) **Coming soon**
+
 
 ## How to reference this work ?
 If you are using **LIT-AlphaFold** please cite:
@@ -73,6 +80,5 @@ To cite specific methods from multistate structure prediction please use the ref
 
 ## Roadmap
 Future releases might include:
-* Google Colab implementation
 * User defined MSA for monomers
 * User defined MSA for multimers

@@ -12,6 +12,7 @@ Functions to generate input objects for AlphaFold prediction
 
 import pickle
 import itertools
+import copy
 
 import logging
 
@@ -71,8 +72,9 @@ def create_interactors_colab(data,
         if isinstance(monomer, MultimericObject):
             return [monomer]
 
-        interactors.append(modify_monomer(d,
-                    monomer.copy(),
+        interactors.append(
+            modify_monomer(d,
+                    copy.deepcopy(monomer),
                     remove_msa,
                     remove_template_msa,
                     remove_templates,
@@ -80,7 +82,8 @@ def create_interactors_colab(data,
                     False,
                     shuffle_templates,
                     paired_msa,
-                    unpaired_msa))
+                    unpaired_msa)
+            )
     return interactors
 
 def create_interactors(data,

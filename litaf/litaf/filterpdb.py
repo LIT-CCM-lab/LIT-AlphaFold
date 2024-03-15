@@ -67,11 +67,12 @@ def filter_template_hits(hits, query):
     filtered_hits = list()
     excluded_hits = list()
     excluded_query_hits = list()
+    selected_hits = list()
     pdbs = list()
     check_duplicates = set()
 
     for hit in hits:
-        #pdbid = hit.name[:4].upper()
+        pdbid = hit.name[:4].upper()
         file_name = hit.name.split()[0].upper()
         if file_name.upper() in check_duplicates:
             continue
@@ -87,14 +88,15 @@ def filter_template_hits(hits, query):
             continue
         else:
             filtered_hits.append(hit)
-            logging.info(f"Selected template: {file_name}")
+            selected_hits.append(file_name)
+            #logging.info(f"Selected template: {file_name}")
             check_duplicates.add(file_name)
     if len(excluded_hits) > 0:
         logging.info(f"EXCLUDED templates: {' '.join(excluded_hits)}")
     if len(excluded_query_hits) > 0:
         logging.info(f"EXCLUDED templates: {' '.join(excluded_query_hits)}")
     if len(excluded_hits) > 0 or len(excluded_query_hits) > 0:
-        logging.info(f"Ten best selected templates: {' '.join(filtered_hits[:10])}")
+        logging.info(f"Ten best selected templates: {' '.join(selected_hits[:10])}")
     return filtered_hits
 
 def reference_database(db):
