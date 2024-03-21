@@ -350,8 +350,8 @@ def predict(
                     "order": ranked_order}, indent=4
                 )
             )
-
-    logging.info(f"Final timings for {fasta_name}: {'\n'.join([f'{k}: {v}' for k,v in timings.items()])}")
+    nl = '\n'
+    logging.info(f"Final timings for {fasta_name}: {nl.join([f'{k}: {v}' for k,v in timings.items()])}")
     timings_output_path = os.path.join(output_dir, "timings.json")
     with open(timings_output_path, "w") as f:
         f.write(json.dumps(timings, indent=4))
