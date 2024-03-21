@@ -19,11 +19,13 @@ from alphafold.data.pipeline import run_msa_tool,make_sequence_features
 
 
 from litaf.datatypes import FeatureDict, TemplateSearcher
+from collections.abc import Sequence
+from typing import Optional
 
 
 # Internal import (7716).
 
-def make_msa_features(msas,
+def make_msa_features(msas: Sequence[parsers.Msa],
                       duplicates = True) -> FeatureDict:
   """
   Constructs a feature dict of MSA features.
