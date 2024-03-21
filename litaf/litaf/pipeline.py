@@ -14,11 +14,11 @@ from absl import logging
 
 from alphafold.common import residue_constants
 from alphafold.data import msa_identifiers, parsers, templates
-from alphafold.data.tools import hhblits,hhsearch,hmmsearch,jackhmmer
+from alphafold.data.tools import hhblits,jackhmmer
 from alphafold.data.pipeline import run_msa_tool,make_sequence_features
 
 
-from litaf.datatypes import *
+from litaf.datatypes import Sequence, FeatureDict, Optional, TemplateSearcher
 
 
 # Internal import (7716).

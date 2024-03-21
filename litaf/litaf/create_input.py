@@ -10,19 +10,16 @@ Functions to generate input objects for AlphaFold prediction
 
 '''
 
-import pickle
 import itertools
 import copy
 
 import logging
 
-from alphapulldown.utils import (make_dir_monomer_dictionary,
-                                    check_empty_templates)
+from alphapulldown.utils import make_dir_monomer_dictionary
 
-from litaf.utils import (create_colabfold_runners,
-                                    read_custom,
-                                    read_all_proteins,
-                                    obtain_options,)
+from litaf.utils import (read_custom,
+                        read_all_proteins,
+                        obtain_options,)
 from litaf.objects import MultimericObject, ChoppedObject, load_monomer_objects
 
 def create_interactors_colab(data,
@@ -204,19 +201,19 @@ def modify_monomer(d,
                             unpaired = unpaired_msa)
 
     if d.get('remove_msa_templates') or remove_template_msa:
-        logging.info(f'Removing template information from the MSA')
+        logging.info('Removing template information from the MSA')
         monomer.remove_template_from_msa(inplace = True)
 
     if d.get('remove_monomer_msa') or remove_msa:
-        logging.info(f'Removing monomer MSA')
+        logging.info('Removing monomer MSA')
         monomer.remove_msa_features(inplace = True)
 
     if d.get('remove_templates') or remove_templates:
-        logging.info(f'Removing template data')
+        logging.info('Removing template data')
         monomer.remove_templates(inplace = True)
 
     if d.get('shuffle_templates') or shuffle_templates:
-        logging.info(f'Shuffling templates')
+        logging.info('Shuffling templates')
         monomer.shuffle_templates(inplace = True)
 
     return monomer
@@ -458,21 +455,20 @@ def create_homooligomers(
     MultimericObject and MonomericObject for prediction: list
     """
     multimers = []
-    monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
     lines = []
     for file in oligomer_state_file:
         with open(file) as f:
             lines = lines + list(f.readlines())
             f.close()
     
-    for l in lines:
-        if len(l.strip()) == 0:
+    for line in lines:
+        if len(line.strip()) == 0:
             continue
-        if len(l.rstrip().split(";")) > 1:
-            data = [obtain_options(l.rstrip().split(";")[0])]
-            num_units = int(l.rstrip().split(";")[1])
+        if len(line.rstrip().split(";")) > 1:
+            data = [obtain_options(line.rstrip().split(";")[0])]
+            num_units = int(line.rstrip().split(";")[1])
         else:
-            data = [obtain_options(l.rstrip().split(";")[0])]
+            data = [obtain_options(line.rstrip().split(";")[0])]
             num_units = 1
 
         monomer = create_interactors(data,
@@ -550,10 +546,10 @@ def create_custom_jobs(
             f.close()
 
     all_files = []
-    for l in lines:
-        if len(l.strip()) == 0:
+    for line in lines:
+        if len(line.strip()) == 0:
             continue
-        all_files.append(read_custom(l))
+        all_files.append(read_custom(line))
 
 
     return create_multimer_objects(

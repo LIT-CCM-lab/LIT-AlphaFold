@@ -34,7 +34,7 @@ def filter_templates(hits, query):
     for chain_id, hit in hits.items():
         logging.info(f"Filetring templates for {chain_id}")
         if chain_id in query:
-            filtered_hits[chain_id] = filter_template_hits(hit, query[chain_id], id_threshold)
+            filtered_hits[chain_id] = filter_template_hits(hit, query[chain_id])
         else:
             filtered_hits[chain_id] = hit
 
@@ -68,7 +68,6 @@ def filter_template_hits(hits, query):
     excluded_hits = list()
     excluded_query_hits = list()
     selected_hits = list()
-    pdbs = list()
     check_duplicates = set()
 
     for hit in hits:

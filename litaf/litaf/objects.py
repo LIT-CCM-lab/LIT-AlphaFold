@@ -17,7 +17,6 @@ import logging
 import tempfile
 import os
 import contextlib
-import random
 import pickle
 from pathlib import Path as plPath
 
@@ -32,13 +31,10 @@ from alphafold.data import (parsers,
 from alphafold.data.tools import hhsearch
 from alphafold.common import residue_constants
 
-from colabfold.batch import (get_queries,
-                            unserialize_msa,
+from colabfold.batch import (unserialize_msa,
                             get_msa_and_templates,
                             msa_to_str,
-                            build_monomer_feature,
-                            parse_fasta,
-                            mk_hhsearch_db)
+                            build_monomer_feature,)
 from colabfold.utils import DEFAULT_API_SERVER
 
 from alphapulldown.utils import mk_mock_template, check_empty_templates
@@ -46,7 +42,7 @@ from alphapulldown.utils import mk_mock_template, check_empty_templates
 from litaf.utils import remove_msa_for_template_aligned_regions
 from litaf.filterpdb import filter_template_hits, generate_filter
 from litaf.pipeline import make_msa_features, DataPipeline
-from litaf.datatypes import *
+from litaf.datatypes import FeatureDict
 
 #Added for MSA clustering
 from polyleven import levenshtein
@@ -54,7 +50,6 @@ from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from litaf.utils import (encode_seqs,
-                        decode_ohe_seqs,
                         consensusVoting,
                         plot_msa_landscape,
                         to_string_seq)
@@ -191,8 +186,7 @@ class MonomericObject:
                     )
             elif save_msa and (output_dir is not None):
                 logging.info(
-                    f"now going to run uniprot runner " \
-                    "and save uniprot alignment in {output_dir}"
+                    f"now going to run uniprot runner and save uniprot alignment in {output_dir}"
                 )
                 result = pipeline.run_msa_tool(
                     uniprot_msa_runner,
@@ -705,23 +699,17 @@ class MonomericObjectMmseqs2(MonomericObject):
             logging.info(f"Skipping {self.description} (result.zip)")
 
         input_path = os.path.join(result_dir,self.description+'.a3m')
-        logging.info(f"looking for possible precomputed a3m at {input_path}")
-        try:
-            logging.info(f"input is {input_path}")
+        if os.Path.isfile(input_path):
+            logging.info(f"Found precomputed a3m at {input_path}")
             a3m_lines = [plPath(input_path).read_text()]
-            logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template")
-        except:
-            a3m_lines=None
-
-        if a3m_lines is not None:
-                (
+            (
                     unpaired_msa,
                     paired_msa,
                     query_seqs_unique,
                     query_seqs_cardinality,
                     template_features,
                 ) = unserialize_msa(a3m_lines, self.sequence)
-
+        
         else:
             (
                 unpaired_msa,
@@ -1237,26 +1225,20 @@ class MultimericObject:
         ------
         None
         '''
-        logging.info("You chose to calculate pair MSA with mmseq2")
+        logging.info("MSA calculation with mmseq2")
         msa_mode = "mmseqs2_uniref"
         result_dir = 'mmseqs2_results'
         if not os.path.isdir(result_dir):
             os.mkdir(result_dir)
         input_path=os.path.join(result_dir,self.description+'_','pair.a3m')
-        logging.info(f"looking for possible precomputed a3m at {input_path}")
-        try:
-            logging.info(f"input is {input_path}")            
+        if os.Path.isfile(input_path):
+            logging.info(f"Found precomputed a3m at {input_path}")            
             paired_msa = [plPath(input_path).read_text()]
             query_seqs_unique = []
             for seq in self.sequences:
                 if seq not in query_seqs_unique:
                     query_seqs_unique.append(seq)
-
-            logging.info(f"Finished parsing the precalculated a3m_file")
-        except:
-            paired_msa=None
-
-        if paired_msa is None:
+        else:
             (unpaired_msa,
             paired_msa,
             query_seqs_unique,

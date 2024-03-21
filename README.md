@@ -6,9 +6,9 @@ LIT-AlphaFold is a modified version of AlphaFold developed in the [Laboratoire d
 
 LIT-AlphaFold combines features from [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown) and [ColabFold](https://github.com/sokrypton/ColabFold), while including additional tools for multistate modelling.
 
-The templates and the multiple sequences alignement (MSA) used by AlphaFold for structure prediction can be modified to obtain different conformational state than the one predicted by default AlphaFold.
+Different tools for MSA editing (clustering, masking, mutation, subsampling), and template selection are avaialble. All these methods have been used for mutlistate modelling of a target protein or protein-protein complex, generating different conformational states from the one predicted by default AlphaFold.
 
-The pipeline is available for both local installation and online using [Google Colab](https://colab.research.google.com/github/LIT-CCM-lab/LIT-AlphaFold/blob/main/LIT-AlphaFold-Colab.ipynb)
+The pipeline is available for both local installation and online use on [Google Colab](https://colab.research.google.com/github/LIT-CCM-lab/LIT-AlphaFold/blob/main/LIT-AlphaFold-Colab.ipynb)
 
 ## Pre-installation
 
@@ -27,19 +27,19 @@ git clone https://github.com/LIT-CCM-lab/LIT-AlphaFold
 cd LIT-AlphaFold
 ```
 
-1. Create the conda environment from the *litaf_env.yaml* file.
+2. Create the conda environment from the *litaf_env.yaml* file.
 ```console
 conda env create -f  litaf_env.yaml
 conda activate lit-af
 ```
-1. Install AlphaFold, ColabFold, and AlphaPulldown using pip. AlphaPulldown is installed without its dependencies to avoid conflicts with the different versions, some modules used for analysis might be missing, in case it is advised to install them manually via pip.
+3. Install AlphaFold, ColabFold, and AlphaPulldown using pip. AlphaPulldown is installed without its dependencies to avoid conflicts with the different versions, some modules used for analysis might be missing, in case it is advised to install them manually via pip.
 ```console
 pip install alphapulldown==0.40.4 --no-deps
 pip install --no-warn-conflicts "colabfold[alphafold-minus-jax] @ git+https://github.com/sokrypton/ColabFold@v1.5.3"
 pip install https://storage.googleapis.com/jax-releases/cuda11/jaxlib-0.3.25+cuda11.cudnn82-cp310-cp310-manylinux2014_x86_64.whl
 pip install jax==0.3.25 chex==0.1.6 biopython==1.79
 ```
-1. Install the *litaf* module
+4. Install the *litaf* module
 ```console
 pip install litaf/
 ```
@@ -48,10 +48,10 @@ pip install litaf/
 
 The project's [Wiki](https://github.com/LIT-CCM-lab/LIT-AlphaFold/wiki) contains multiple tutorials covering the main tools available in LIT-AlphaFold.
 
-Google Colab implementation of the tutorials are available:
+Google Colab implementation of the tutorials are also available:
 * [Monomer and Multistate predictions (Tutorial 1-4)](https://colab.research.google.com/github/LIT-CCM-lab/LIT-AlphaFold/blob/main/LIT-AlphaFold-Colab_Tutorial_Monomer.ipynb)
 * Homo-oligomer prediction (Tutorial 5)  **Coming soon**
-* Multimer predictions (Tutorial 5) **Coming soon**
+* Multimer prediction (Tutorial 5) **Coming soon**
 
 
 ## How to reference this work ?
@@ -67,11 +67,13 @@ If you are using **LIT-AlphaFold** please cite:
   Bioinformatics (2023) doi: [10.1093/bioinformatics/btac749](https://academic.oup.com/bioinformatics/article/39/1/btac749/6839971)
 
 If you’re using **AlphaFold**, please also cite: <br />
-- Jumper et al. "Highly accurate protein structure prediction with AlphaFold." <br />
+- Jumper et al. <br />
+  Highly accurate protein structure prediction with AlphaFold. <br />
   Nature (2021) doi: [10.1038/s41586-021-03819-2](https://doi.org/10.1038/s41586-021-03819-2)
   
 If you’re using **AlphaFold-multimer**, please also cite: <br />
-- Evans et al. "Protein complex prediction with AlphaFold-Multimer." <br />
+- Evans et al.<br />
+  Protein complex prediction with AlphaFold-Multimer. <br />
   biorxiv (2021) doi: [10.1101/2021.10.04.463034v1](https://www.biorxiv.org/content/10.1101/2021.10.04.463034v1)
 
 If you are using **MMseqs2**, please also use the appropriate citation in: [MMseqs2](https://github.com/soedinglab/MMseqs2)

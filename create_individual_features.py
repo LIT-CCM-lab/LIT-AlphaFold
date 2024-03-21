@@ -8,7 +8,6 @@
 import sys
 import os
 import pickle
-import importlib
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -16,10 +15,8 @@ import contextlib
 
 from absl import app
 from absl import flags
-import numpy as np
 import yaml
 
-import alphafold
 from alphafold.data.tools import hmmsearch, hhsearch
 from alphafold.data import templates
 from alphafold import run_alphafold as run_af

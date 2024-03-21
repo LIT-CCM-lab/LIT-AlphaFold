@@ -7,12 +7,11 @@
 # #
 import os
 import sys
-import itertools
 import pickle
 import random
-from itertools import combinations
 from pathlib import Path
 from absl import app, flags, logging
+
 import openmm
 import jax
 
@@ -21,13 +20,13 @@ from alphafold import run_alphafold as run_af
 #run_af = get_run_alphafold()
 
 
-from litaf.objects import MultimericObject, ChoppedObject
+from litaf.objects import MultimericObject
 from litaf.predict_structure import predict, ModelsToRelax
 from litaf.create_input import (create_pulldown,
                                             create_homooligomers,
                                             create_all_vs_all,
                                             create_custom_jobs)
-from litaf.utils import setup_logging, create_colabfold_runners
+from litaf.utils import setup_logging, create_colabfold_runners, load_mutation_dict
 
 
 
@@ -293,12 +292,11 @@ def main(argv):
         # check if TPU is available
         import jax.tools.colab_tpu
         jax.tools.colab_tpu.setup_tpu()
-        logger.info('Running on TPU')
+        logging.info('Running on TPU')
     except:
         if jax.local_devices()[0].platform == 'cpu':
             logging.info("WARNING: no GPU detected, will be using CPU")
         else:
-            import tensorflow as tf
             logging.info('Running on GPU')
 
     if FLAGS.mutate_msa_file:

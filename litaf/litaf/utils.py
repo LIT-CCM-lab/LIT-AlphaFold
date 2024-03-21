@@ -3,9 +3,9 @@ Submodule containing utility functions
 
 '''
 
-import os
 import logging
-import pickle
+from absl import logging as absl_logging
+import yaml
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,6 +13,7 @@ from alphafold.data import parsers
 from colabfold.alphafold.models import load_models_and_params
 from alphapulldown.utils import parse_fasta
 from alphafold.common import residue_constants
+
 
 
 
@@ -27,16 +28,16 @@ def read_all_proteins(fasta_path) -> list:
     all_proteins = []
     with open(fasta_path, "r") as f:
         lines = list(f.readlines())
-        if any(l.startswith(">") for l in lines):
+        if any(line.startswith(">") for line in lines):
             # this mean the file is a fasta file
             with open(fasta_path, "r") as input_file:
                 sequences, descriptions = parsers.parse_fasta(input_file.read())
                 for desc in descriptions:
                     all_proteins.append({'protein_name': desc})
         else:
-            for l in lines:
-                if len(l.strip()) > 0:
-                    all_proteins.append(obtain_options(l))
+            for line in lines:
+                if len(line.strip()) > 0:
+                    all_proteins.append(obtain_options(line))
     return all_proteins
 
 
@@ -72,7 +73,7 @@ def obtain_options(input_string) -> dict:
     logging.info(f'Reading options for monomer {opt_list[0]}')
     for opt in opt_list[1:]:
         if opt.startswith('selected_residues'):
-            logging.info(f'Reading residues for chopped monomer')
+            logging.info('Reading residues for chopped monomer')
             opt = opt.split('=')[1]
             regions = opt.split(',')
             output_region = []
@@ -82,7 +83,7 @@ def obtain_options(input_string) -> dict:
                     )
             opt_dict['selected_residues'] = output_region
         elif opt.startswith('remove_msa_region'):
-            logging.info(f'Reading regions to remove MSA')
+            logging.info('Reading regions to remove MSA')
             opt = opt.split('=')[1]
             regions = opt.split(',')
             output_region = []
@@ -92,7 +93,7 @@ def obtain_options(input_string) -> dict:
                     )
             opt_dict['remove_msa_region'] = output_region
         elif opt.startswith('mutate_msa'):
-            logging.info(f'Reading point mutations to the MSA')
+            logging.info('Reading point mutations to the MSA')
             opt = opt.split('=')[1]
             mutation_dict = {}
             point_mut = opt.split(',')
@@ -149,7 +150,7 @@ def create_colabfold_runners(
     return model_runners
 
 def load_mutation_dict(file: str) -> dict:
-    logger.info(f'Reading mutation information from {file}')
+    logging.info(f'Reading mutation information from {file}')
     with open(file, 'r') as yaml_file:
         yaml_dict = yaml.load(yaml_file, Loader=yaml.loader.SafeLoader)
 
@@ -165,8 +166,6 @@ def remove_msa_for_template_aligned_regions(feature_dict):
     feature_dict['msa'][:,mask] = 21
     return feature_dict
 
-import logging
-from absl import logging as absl_logging
 
 def setup_logging(log_file):
     for handler in logging.root.handlers[:]:
@@ -176,6 +175,7 @@ def setup_logging(log_file):
                         level = logging.INFO,
                         filemode='a',)
     absl_logging.set_verbosity(absl_logging.INFO)
+
 
 def iter_seqs(fasta_fns):
     for fasta_path in fasta_fns:
@@ -206,7 +206,6 @@ def consensusVoting(seqs):
     ## Find the consensus sequence
     ## Modified from https://github.com/HWaymentSteele/AF_Cluster/blob/main/scripts/utils.py
     consensus = ""
-    residues = "ACDEFGHIKLMNPQRSTVWY-"
     n_chars = len(seqs[0])
     for i in range(n_chars):
         baseArray = [x[i] for x in seqs]

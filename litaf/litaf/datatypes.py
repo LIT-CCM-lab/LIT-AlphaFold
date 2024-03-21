@@ -1,4 +1,4 @@
-from typing import Any, Mapping, MutableMapping, Optional, Sequence, Union
+from typing import MutableMapping, Union
 from alphafold.data.tools import hhsearch
 from alphafold.data.tools import hmmsearch
 import numpy as np

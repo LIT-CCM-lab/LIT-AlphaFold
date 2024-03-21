@@ -16,7 +16,6 @@ import json
 import os
 import pickle
 import time
-import pdb
 import logging
 import numpy as np
 
@@ -82,12 +81,6 @@ def get_existing_model_info(output_dir, model_runners ):
         pkl_path = os.path.join(output_dir, f"result_{model_name}.pkl")
 
         if not (os.path.exists(pdb_path) and os.path.exists(pkl_path)):
-            break
-
-        try:
-            with open(pkl_path, "rb") as f:
-                result = pickle.load(f)
-        except (EOFError, pickle.UnpicklingError):
             break
 
         score_name, score = get_score_from_result_pkl(pkl_path)
@@ -201,7 +194,8 @@ def predict(
 
         #monitor intermediate results
         def callback(result, recycles):
-            if recycles == 0: result.pop("tol",None)
+            if recycles == 0:
+                result.pop("tol",None)
             #if not is_complex: result.pop("iptm",None)
             print_line = ""
             scores = [["mean_plddt","pLDDT"],
@@ -217,19 +211,19 @@ def predict(
                 final_atom_mask = result["structure_module"]["final_atom_mask"]
                 b_factors = result["plddt"][:, None] * final_atom_mask
                 unrelaxed_protein = protein.from_prediction(
-                    features=input_features,
+                    features=processed_feature_dict,
                     result=result,
                     b_factors=b_factors,
                     remove_leading_feature_dimension=(
-                            "multimer" not in model_type)
+                            len(seqs) == 1)
                     )
-                files.get("unrelaxed",
-                        f"r{recycles}.pdb").write_text(
+                os.path.join(output_dir, f"unrelaxed_{model_name}_r{recycles}.pdb").write_text(
                                 protein.to_pdb(unrelaxed_protein)
                                 )
+
             
                 if save_all:
-                    with files.get("all",f"r{recycles}.pickle").open("wb") as handle:
+                    with open(os.path.join(output_dir, f"unrelaxed_{model_name}_r{recycles}.pkl", "wb")) as handle:
                         pickle.dump(result, handle)
                 del unrelaxed_protein
 
@@ -357,7 +351,7 @@ def predict(
                 )
             )
 
-    logging.info("Final timings for %s: %s", fasta_name, timings)
+    logging.info(f"Final timings for {fasta_name}: {'\n'.join([f'{k}: {v}' for k,v in timings.items()])}")
     timings_output_path = os.path.join(output_dir, "timings.json")
     with open(timings_output_path, "w") as f:
         f.write(json.dumps(timings, indent=4))
