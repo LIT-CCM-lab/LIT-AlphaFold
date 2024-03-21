@@ -23,7 +23,7 @@ from litaf.datatypes import FeatureDict, TemplateSearcher
 
 # Internal import (7716).
 
-def make_msa_features(msas: Sequence[parsers.Msa],
+def make_msa_features(msas,
                       duplicates = True) -> FeatureDict:
   """
   Constructs a feature dict of MSA features.
