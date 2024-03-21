@@ -720,7 +720,7 @@ class MonomericObjectMmseqs2(MonomericObject):
             ) = get_msa_and_templates(
                 jobname=self.description,
                 query_sequences=self.sequence,
-                a3m_lines=a3m_lines,
+                a3m_lines=None,
                 result_dir=plPath(result_dir),
                 msa_mode=msa_mode,
                 use_templates=templates_path == 'mmseqs2',
@@ -1247,7 +1247,7 @@ class MultimericObject:
             ) = get_msa_and_templates(
                 jobname=self.description,
                 query_sequences=self.sequence,
-                a3m_lines=paired_msa,
+                a3m_lines=None,
                 result_dir=plPath(result_dir),
                 msa_mode=msa_mode,
                 use_templates=False,
