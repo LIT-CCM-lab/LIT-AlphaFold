@@ -699,7 +699,7 @@ class MonomericObjectMmseqs2(MonomericObject):
             logging.info(f"Skipping {self.description} (result.zip)")
 
         input_path = os.path.join(result_dir,self.description+'.a3m')
-        if os.Path.isfile(input_path):
+        if os.path.isfile(input_path):
             logging.info(f"Found precomputed a3m at {input_path}")
             a3m_lines = [plPath(input_path).read_text()]
             (
@@ -1231,7 +1231,7 @@ class MultimericObject:
         if not os.path.isdir(result_dir):
             os.mkdir(result_dir)
         input_path=os.path.join(result_dir,self.description+'_','pair.a3m')
-        if os.Path.isfile(input_path):
+        if os.path.isfile(input_path):
             logging.info(f"Found precomputed a3m at {input_path}")            
             paired_msa = [plPath(input_path).read_text()]
             query_seqs_unique = []
