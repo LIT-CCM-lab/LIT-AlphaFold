@@ -18,7 +18,7 @@ from alphafold.data.tools import hhblits,jackhmmer
 from alphafold.data.pipeline import run_msa_tool,make_sequence_features
 
 
-from litaf.datatypes import Sequence, FeatureDict, Optional, TemplateSearcher
+from litaf.datatypes import FeatureDict, TemplateSearcher
 
 
 # Internal import (7716).
