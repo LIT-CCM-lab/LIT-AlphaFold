@@ -17,8 +17,13 @@ import logging
 import tempfile
 import os
 import contextlib
-import pickle
+import bz2
 from pathlib import Path as plPath
+
+try:
+   import cPickle as pickle
+except:
+   import pickle
 
 import numpy as np
 
@@ -72,14 +77,27 @@ def load_monomer_objects(monomer_dir_dict, protein_name):
     args
     monomer_dir_dict: a dictionary recording protein_name and its directory. created by make_dir_monomer_dictionary()
     """
-    target_path = monomer_dir_dict[f"{protein_name}.pkl"]
-    target_path = os.path.join(target_path, f"{protein_name}.pkl")
-    monomer = pickle.load(open(target_path, "rb"))
+    print(monomer_dir_dict)
+    if monomer_dir_dict.get(protein_name, None) is not None:
+        target_path = os.path.join(monomer_dir_dict[protein_name], f"{protein_name}.pkl")
+        if os.path.isfile(target_path):
+            monomer = pickle.load(open(target_path, "rb"))
+        elif os.path.isfile(target_path+'.bz2') is not None:
+            monomer = pickle.load(bz2.BZ2File(target_path+'.bz2', "rb"))
+        else:
+            raise OSError(f'Could not find {protein_name} in {monomer_dir_dict[protein_name]}')
+    else:
+        raise OSError(f'File for {protein_name} was not found')
     if isinstance(monomer, MultimericObject):
         return monomer
     if check_empty_templates(monomer.feature_dict):
         monomer.feature_dict = mk_mock_template(monomer.feature_dict)
     return monomer
+
+def check_existing_objects(output_dir, pickle_name):
+    """check whether the wanted monomer object already exists in the output_dir"""
+    logging.info(f"checking if {os.path.join(output_dir, pickle_name)} already exists")
+    return os.path.isfile(os.path.join(output_dir, pickle_name+'.pkl')) or os.path.isfile(os.path.join(output_dir, pickle_name+'.pkl.bz2'))
 
 
 class MonomericObject:

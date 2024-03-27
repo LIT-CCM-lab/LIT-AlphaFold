@@ -7,14 +7,31 @@ import logging
 from absl import logging as absl_logging
 import yaml
 
+import py3Dmol
+
 import numpy as np
 import matplotlib.pyplot as plt
 from alphafold.data import parsers
 from colabfold.alphafold.models import load_models_and_params
+from colabfold.colabfold import pymol_color_list, alphabet_list
 from alphapulldown.utils import parse_fasta
 from alphafold.common import residue_constants
 
 
+def make_dir_monomer_dictionary(monomer_objects_dir):
+    """
+    a function to gather all monomers across different monomer_objects_dir
+
+    args
+    monomer_objects_dir: a list of directories where monomer objects are stored, given by FLAGS.monomer_objects_dir
+    """
+    output_dict = dict()
+    for m_dir in monomer_objects_dir:
+        monomers = os.listdir(m_dir)
+        for m in monomers:
+            if m.endswith('.pkl') or m.endswith('.pkl.bz2'):
+                output_dict[m.split('.')[0]] = m_dir
+    return output_dict
 
 
 def read_all_proteins(fasta_path) -> list:
@@ -237,3 +254,31 @@ def plot_msa_landscape(x, y, qx, qy, labels, ax_labels):
     plt.tight_layout()
 
     return fig
+
+def show_pdb(pdb_file, n_chains, show_sidechains=False, show_mainchains=False, color="lDDT"):
+    #The function show_pdb is adapted from ColabFold
+    view = py3Dmol.view(js='https://3dmol.org/build/3Dmol.js',)
+    view.addModel(open(pdb_file,'r').read(),'pdb')
+
+    if color == "lDDT":
+        view.setStyle({'cartoon': {'colorscheme': {'prop':'b','gradient': 'roygb','min':50,'max':90}}})
+    elif color == "rainbow":
+        view.setStyle({'cartoon': {'color':'spectrum'}})
+    elif color == "chain":
+        for n,chain,color in zip(range(n_chains),alphabet_list,pymol_color_list):
+           view.setStyle({'chain':chain},{'cartoon': {'color':color}})
+
+    if show_sidechains:
+        BB = ['C','O','N']
+        view.addStyle({'and':[{'resn':["GLY","PRO"],'invert':True},{'atom':BB,'invert':True}]},
+                        {'stick':{'colorscheme':f"WhiteCarbon",'radius':0.3}})
+        view.addStyle({'and':[{'resn':"GLY"},{'atom':'CA'}]},
+                        {'sphere':{'colorscheme':f"WhiteCarbon",'radius':0.3}})
+        view.addStyle({'and':[{'resn':"PRO"},{'atom':['C','O'],'invert':True}]},
+                        {'stick':{'colorscheme':f"WhiteCarbon",'radius':0.3}})
+    if show_mainchains:
+        BB = ['C','O','N','CA']
+        view.addStyle({'atom':BB},{'stick':{'colorscheme':f"WhiteCarbon",'radius':0.3}})
+
+    view.zoomTo()
+    return view

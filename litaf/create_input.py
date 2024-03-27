@@ -15,11 +15,11 @@ import copy
 
 import logging
 
-from alphapulldown.utils import make_dir_monomer_dictionary
-
 from litaf.utils import (read_custom,
                         read_all_proteins,
-                        obtain_options,)
+                        obtain_options,
+                        make_dir_monomer_dictionary)
+
 from litaf.objects import MultimericObject, ChoppedObject, load_monomer_objects
 
 def create_interactors_colab(data,

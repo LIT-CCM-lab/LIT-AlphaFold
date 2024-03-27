@@ -7,11 +7,16 @@
 # #
 import sys
 import os
-import pickle
+import bz2
 import logging
 from datetime import datetime
 from pathlib import Path
 import contextlib
+
+try:
+   import cPickle as pickle
+except:
+   import pickle
 
 from absl import app
 from absl import flags
@@ -25,13 +30,14 @@ from colabfold.utils import DEFAULT_API_SERVER
 from colabfold.batch import mk_hhsearch_db
 
 from alphapulldown.utils import (
-    check_existing_objects,
-    load_monomer_objects,
     save_meta_data,
     create_uniprot_runner,
 )
 
-from litaf.objects import MonomericObject, MonomericObjectMmseqs2
+from litaf.objects import (MonomericObject,
+                            MonomericObjectMmseqs2,
+                            load_monomer_objects,
+                            check_existing_objects)
 from litaf.filterpdb import load_template_filter
 from litaf.pipeline import DataPipeline
 from litaf.utils import setup_logging, iter_seqs
@@ -73,6 +79,9 @@ flags.DEFINE_string('logger_file', 'feature_generation',
 )
 flags.DEFINE_bool('paired_msa', True,
                   "Search Uniprot for sequences for paired MSA generation"
+)
+flags.DEFINE_bool('compress', True,
+                  "Compress the pkl file to save space"
 )
 
 delattr(flags.FLAGS, "data_dir")
@@ -273,17 +282,15 @@ def create_and_save_monomer_objects(m: MonomericObject, pipeline: DataPipeline,
     if FLAGS.custom_template_path:
         custom_path = os.path.basename(
                         os.path.normpath(FLAGS.custom_template_path))
-        outfile = f'{m.description}_{custom_path}.pkl'
+        outfile = f'{m.description}_{custom_path}'
     else:
-        outfile = f'{m.description}.pkl'
+        outfile = f'{m.description}'
 
-    if FLAGS.skip_existing and check_existing_objects(
-        FLAGS.output_dir, outfile
-    ):
+    if FLAGS.skip_existing and check_existing_objects(FLAGS.output_dir, outfile) :
         logging.info(f"Already found {outfile} in {FLAGS.output_dir} Skipped")
         #load old file and add all features of the old object in the passed one
-        monomer = load_monomer_objects({f'{outfile}': FLAGS.output_dir},
-                                         outfile[:-4])
+        monomer = load_monomer_objects({outfile: FLAGS.output_dir},
+                                         outfile)
         for attr, val in monomer.__dict__.items():
             m.__dict__[attr] = val
     else:
@@ -322,8 +329,11 @@ def create_and_save_monomer_objects(m: MonomericObject, pipeline: DataPipeline,
         if FLAGS.custom_template_path:
             m.description = f'{m.description}_{custom_path}'
         output_file = os.path.join(FLAGS.output_dir, m.description)
-        logging.info(f'Saving monomer object {output_file}.pkl')
-        pickle.dump(m, open(f"{output_file}.pkl", "wb"))
+        logging.info(f'Saving monomer object {output_file}')
+        if FLAGS.compress:
+            pickle.dump(m, bz2.BZ2File(f"{output_file}.pkl.bz2", "w"))
+        else:
+            pickle.dump(m, open(f"{output_file}.pkl", "wb"))
 
 
 def filter_and_save_monomer_object(monomer: MonomericObject, filters: dict,
@@ -362,11 +372,9 @@ def filter_and_save_monomer_object(monomer: MonomericObject, filters: dict,
         logging.info(f'Generating custom input with template filter: ' \
                     f'{filter_file}')
         filter_name = Path(filter_file).stem
-        if FLAGS.skip_existing and check_existing_objects(
-                FLAGS.output_dir, f"{monomer.description}_{filter_name}.pkl"
-        ):
-            logging.info(f"{monomer.description}_{filter_name}.pkl exists" \
-                        f"in {FLAGS.output_dir} Skipped")
+        file_name = f"{monomer.description}_{filter_name}"
+        if FLAGS.skip_existing and check_existing_objects(FLAGS.output_dir, file_name):
+            logging.info(f"{file_name} exists in {FLAGS.output_dir} Skipped")
             continue
         monomer.make_template_features(
             template_featuriser,
@@ -376,8 +384,11 @@ def filter_and_save_monomer_object(monomer: MonomericObject, filters: dict,
         old_description = monomer.description
         monomer.description = f'{monomer.description}_{filter_name}'
         output_file = os.path.join(FLAGS.output_dir, f'{monomer.description}')
-        logging.info(f'Saving monomer object {output_file}.pkl')
-        pickle.dump(monomer, open(f"{output_file}.pkl", "wb"))
+        logging.info(f'Saving monomer object {output_file}')
+        if FLAGS.compress:
+            pickle.dump(monomer, bz2.BZ2File(f"{output_file}.pkl.bz2", "w"))
+        else:
+            pickle.dump(monomer, open(f"{output_file}.pkl", "wb"))
         logging.info(f'Dumping search results in a filter file ' \
                         f'{output_file}_filter_results.yaml')
         with open(f'{output_file}_filter_results.yaml', 'w') as yaml_file:

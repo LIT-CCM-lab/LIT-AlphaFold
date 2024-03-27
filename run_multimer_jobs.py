@@ -7,10 +7,15 @@
 # #
 import os
 import sys
-import pickle
+import bz2
 import random
 from pathlib import Path
 from absl import app, flags, logging
+
+try:
+   import cPickle as pickle
+except:
+   import pickle
 
 import openmm
 import jax
@@ -48,6 +53,8 @@ flags.DEFINE_string('logger_file', 'alphafold_prediction',
                 'File where to store the results')
 flags.DEFINE_boolean("save_multimers", False,
                     "Save the MultimerObject as pkl files")
+flags.DEFINE_boolean("compress_multimers", False,
+                    "Compress the MultimerObject pkl files")
 
 #Inference settings
 flags.DEFINE_integer("num_cycle_mono", 5,
@@ -170,7 +177,10 @@ def predict_individual_jobs(
         multimer_object.input_seqs = [multimer_object.sequence]
 
     if save_multimer:
-        pickle.dump(multimer_object, open(f"{output_path}.pkl", "wb"))
+        if FLAGS.compress_multimer:
+            pickle.dump(multimer_object, bz2.BZ2File(f"{output_path}.pkl.bz2", "w"))
+        else:
+            pickle.dump(multimer_object, open(f"{output_path}.pkl", "wb"))
 
     predict(
         model_runners,

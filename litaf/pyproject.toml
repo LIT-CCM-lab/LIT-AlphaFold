@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'litaf'
+version = '1.0'
+authors = [{name = 'Luca Chiesa', email = 'luca.chiesa@unistra.com'}]
+description = 'Python module for multistate modelling using AlphaFold and AlphaFold-Multimer'
+license = ''
+requires-python = ">=3.10"
+dependencies = ['colabfold==1.5.3']
+
+[project.urls]
+Homepage = 'https://github.com/LIT-CCM-lab/LIT-AlphaFold'
