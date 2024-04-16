@@ -241,13 +241,25 @@ def to_string_seq(seq):
 
     return str_seq
 
+def cluster_analysis(feature_dict):
+    nl = '\n'
+    L = feature_dict['seq_length'][0]
+    cluster_msa = [to_string_seq(x) for x in feature_dict['msa']]
+    cs = consensusVoting(encode_seqs(feature_dict['msa']))
+    avg_dist_to_cs = np.mean([1-levenshtein(x,cs)/L for x in cluster_msa])
+    avg_dist_to_query = np.mean([1-levenshtein(x,feature_dict['sequence'][0].decode("utf-8"))/L for x in cluster_msa])
+    logging.info(f"Generated cluster {clst} with consensus sequence:{nl}{cs}{nl}"
+        f"Average distance from consensus sequence: {avg_dist_to_cs}{nl}"
+        f"Average distance from query sequence: {avg_dist_to_query}{nl}")
+
+
 
 def plot_msa_landscape(x, y, qx, qy, labels, ax_labels):
     fig, ax = plt.subplots(figsize=(5,5))
     ax.scatter(x[labels == -1], y[labels == -1], color='lightgray', marker='x', label='unclustered')
     ax.scatter(x[labels != -1], y[labels != -1], c=labels[labels != -1], marker='o')
     ax.scatter(qx,qy, color='red', marker='*', s=150, label='Ref Seq')
-    ax.scatter(x[0],y[0], color='blue', marker='*', s=50, label='Best Seq')
+    #ax.scatter(x[0],y[0], color='blue', marker='*', s=50, label='Best Seq')
     plt.legend()
     ax.set_xlabel(ax_labels[0])
     ax.set_ylabel(ax_labels[1])
@@ -276,9 +288,16 @@ def show_pdb(pdb_file, n_chains, show_sidechains=False, show_mainchains=False, c
                         {'sphere':{'colorscheme':f"WhiteCarbon",'radius':0.3}})
         view.addStyle({'and':[{'resn':"PRO"},{'atom':['C','O'],'invert':True}]},
                         {'stick':{'colorscheme':f"WhiteCarbon",'radius':0.3}})
+        
     if show_mainchains:
         BB = ['C','O','N','CA']
         view.addStyle({'atom':BB},{'stick':{'colorscheme':f"WhiteCarbon",'radius':0.3}})
+
+    view.setClickable({},
+                        'true',
+                        "function(atom, viewer, event, container){"\
+                        "if(atom.label){viewer.removeLabel(atom.label);delete atom.label;}" \
+                        "else{atom.label=viewer.addLabel(atom.resn+atom.resi+':'+atom.b, {'position': atom});}\n}")
 
     view.zoomTo()
     return view

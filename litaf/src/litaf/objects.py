@@ -77,7 +77,6 @@ def load_monomer_objects(monomer_dir_dict, protein_name):
     args
     monomer_dir_dict: a dictionary recording protein_name and its directory. created by make_dir_monomer_dictionary()
     """
-    print(monomer_dir_dict)
     if monomer_dir_dict.get(protein_name, None) is not None:
         target_path = os.path.join(monomer_dir_dict[protein_name], f"{protein_name}.pkl")
         if os.path.isfile(target_path):
@@ -236,7 +235,7 @@ class MonomericObject:
     def make_template_features(
         self,
         template_featuriser,
-        filter_t: dict = None,
+        filter_t: list = [{}, []],
         inplace: bool = False
         ) -> dict:
         '''
@@ -405,9 +404,9 @@ class MonomericObject:
                 Heo, L, Feig, M.\n\
                 Multi-state modeling of G-protein coupled receptors at experimental accuracy.\n\
                 Proteins. 2022; 90(11): 1873-1885. doi:10.1002/prot.26382')
-        new_feature_dict = remove_msa_for_template_aligned_regions(self.feature_dict)
+        new_feature_dict = remove_msa_for_template_aligned_regions(self.feature_dict.copy())
         if inplace:
-            self.feature_dict = new_feature_dict.copy()
+            self.feature_dict = new_feature_dict
             self.description += '_no_template_msa'
         return new_feature_dict
 
@@ -451,10 +450,10 @@ class MonomericObject:
         for i, mut in pos_res.items():
             int_mut = residue_constants.HHBLITS_AA_TO_ID[mut]
             if unpaired:
-                mutated_msa[:,i] = int_mut
+                mutated_msa[:,i] = [int_mut if r != 21 else 21 for r in mutated_msa[:,i]]
                 logging.info(f'Mutating MSA in position {i} to residue {mut}')
             if paired:
-                mutated_pmsa[:,i] = int_mut
+                mutated_pmsa[:,i] = [int_mut if r != 21 else 21 for r in mutated_pmsa[:,i]]
                 logging.info(f'Mutating pMSA in position {i} to residue {mut}')
         if inplace:
             self.feature_dict['msa'] = mutated_msa
@@ -524,37 +523,31 @@ class MonomericObject:
                 Wayment-Steele H. K., et al.\n\
                 Predicting multiple conformations via sequence clustering and AlphaFold2.\n\
                 Nature. 2024; 625: 832-839. doi:10.1038/s41586-023-06832-9')
-        nl = '\n'
-        L = self.feature_dict['seq_length'][0]
+        
         ohe_seqs = encode_seqs(self.feature_dict['msa'])
         logging.info(f"Performing MSA clustering using eps {eps_val} and min_samples {min_samples}")
         clustering = DBSCAN(eps=eps_val, min_samples=min_samples).fit(ohe_seqs)
 
         self.msa_cluster_labels = clustering.labels_
-
         cluster_feature_dict = {}
         for clst in range(max(clustering.labels_)+1):
-            cluster_msa = [to_string_seq(x) for x in self.feature_dict['msa'][clustering.labels_ == clst]]
-            cs = consensusVoting(ohe_seqs[clustering.labels_ == clst])
-            avg_dist_to_cs = np.mean([1-levenshtein(x,cs)/L for x in cluster_msa])
-            avg_dist_to_query = np.mean([1-levenshtein(x,self.feature_dict['sequence'][0].decode("utf-8"))/L for x in cluster_msa])
-            logging.info(f"Generated cluster {clst} with consensus sequence:{nl}{cs}{nl}"
-                f"Average distance from consensus sequence: {avg_dist_to_cs}{nl}"
-                f"Average distance from query sequence: {avg_dist_to_query}{nl}")
-            cluster_deletion_matrix = self.feature_dict['deletion_matrix_int'][clustering.labels_ == clst].copy()
-            cluster_num_alignements = np.array([len(cluster_msa) for _ in self.feature_dict['num_alignments']])
             out_dict = self.feature_dict.copy()
-            out_dict.update({'msa': self.feature_dict['msa'][clustering.labels_ == clst],
-                            'deletion_matrix_int': cluster_deletion_matrix,
-                            'num_alignments': cluster_num_alignements})
+            num_alignments = np.count_nonzero(clustering.labels_ == clst)
+            out_dict.update({'msa': np.concatenate([[self.feature_dict['msa'][0]],
+                                                    self.feature_dict['msa'][clustering.labels_ == clst]]),
+                            'deletion_matrix_int': np.concatenate([[self.feature_dict['deletion_matrix_int'][0]],
+                                                                    self.feature_dict['deletion_matrix_int'][clustering.labels_ == clst]]),
+                            'num_alignments': np.array([num_alignments for _ in self.feature_dict['num_alignments']])})
             cluster_feature_dict[clst] = out_dict
 
         if -1 in clustering.labels_:
             unclustered_seqs = self.feature_dict['msa'][clustering.labels_ == -1]
-            avg_dist_to_query = np.mean([1-levenshtein(to_string_seq(x),self.feature_dict['sequence'][0].decode("utf-8"))/L for x in unclustered_seqs])
-            logging.info(f"DBSCAN generated {len(unclustered_seqs)} unclustered sequences, with average distance from the query {avg_dist_to_query}")
+            #avg_dist_to_query = np.mean([1-levenshtein(to_string_seq(x),self.feature_dict['sequence'][0].decode("utf-8"))/L for x in unclustered_seqs])
+            #logging.info(f"DBSCAN generated {len(unclustered_seqs)} unclustered sequences, with average distance from the query {avg_dist_to_query}")
+            logging.info(f"DBSCAN generated {len(unclustered_seqs)} unclustered sequences")
 
         return cluster_feature_dict
+
 
     def plot_msa_proj(self, method = 'PCA'):
         '''Plot a 2D projection of the MSA based on distances between the sequences.
@@ -1166,6 +1159,18 @@ class MultimericObject:
             sequences=self.input_seqs, descriptions=input_descs
         )
 
+    def remove_all_seq_features(self, np_chains_list):
+        new_chain_list = []
+        for chain in np_chains_list:
+            for feature in chain.keys():
+                if feature.endswith('all_seq'):
+                    chain.update({feature: chain[feature][[0]]})
+
+            new_chain_list.append(chain)
+
+        return new_chain_list
+
+
     def pair_and_merge(self, all_chain_features):
         """merge all chain features
         Parameters
@@ -1180,16 +1185,19 @@ class MultimericObject:
         MSA_CROP_SIZE = 2048
         feature_processing.process_unmerged_features(all_chain_features)
         np_chains_list = list(all_chain_features.values())
-        pair_msa_sequences = self.pair_msa and not feature_processing._is_homomer_or_monomer(np_chains_list)
+        if not self.pair_msa:
+            np_chains_list = self.remove_all_seq_features(np_chains_list)
+        pair_msa_sequences = not feature_processing._is_homomer_or_monomer(np_chains_list)
         if pair_msa_sequences:
             np_chains_list = msa_pairing.create_paired_features(chains=np_chains_list)
             np_chains_list = msa_pairing.deduplicate_unpaired_sequences(np_chains_list)
+            
         np_chains_list = feature_processing.crop_chains(
             np_chains_list,
             msa_crop_size=MSA_CROP_SIZE,
             pair_msa_sequences=pair_msa_sequences,
             max_templates=MAX_TEMPLATES,
-        )
+            )
         np_example = msa_pairing.merge_chain_features(
             np_chains_list=np_chains_list,
             pair_msa_sequences=pair_msa_sequences,

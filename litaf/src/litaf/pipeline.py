@@ -10,7 +10,7 @@ import os
 
 import numpy as np
 
-from absl import logging
+import logging
 
 from alphafold.common import residue_constants
 from alphafold.data import msa_identifiers, parsers, templates

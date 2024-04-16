@@ -40,6 +40,7 @@ def filter_templates(hits, query):
 
     return filtered_hits
 
+
 def filter_template_hits(hits, query):
     '''
     General function for evaluation of template hits
@@ -61,9 +62,9 @@ def filter_template_hits(hits, query):
     database_search = {'GPCRdb_r': query_gpcrdb_r, 'GPCRdb_g': query_gpcrdb_g, 'Empty': empty_search}
 
     #search_function = database_search[query['database']] if query.get('database') in database_search else empty_search
+    query, all_entries = query
     search_function = database_search.get(query.get('database', 'Empty'))
-    reference_database(query.get('database', 'Empty'))
-
+    
     filtered_hits = list()
     excluded_hits = list()
     excluded_query_hits = list()
@@ -81,7 +82,7 @@ def filter_template_hits(hits, query):
         elif pdbid not in query.get('subset_pdb', []) and query.get('subset_pdb'):
             excluded_hits.append(file_name)
             continue
-        elif not search_function(file_name, query):
+        elif not search_function(file_name, query, all_entries):
             excluded_query_hits.append(file_name)
             check_duplicates.add(file_name)
             continue
@@ -98,11 +99,18 @@ def filter_template_hits(hits, query):
         logging.info(f"Ten best selected templates: {' '.join(selected_hits[:10])}")
     return filtered_hits
 
-def reference_database(db):
-    if db == 'GPCRdb_r':
-        logging.info('By using GPCRdb please use the references in: https://gpcrdb.org/cite_gpcrdb')
-    if db == 'GPCRdb_g':
-        logging.info('By using GPCRdb please use the references in: https://gpcrdb.org/cite_gpcrdb')
+def get_all_entries(db):
+    if db in ['GPCRdb_r', 'GPCRdb_g']:
+        return get_all_gpcrdb()
+    else:
+        return None
+
+def get_all_gpcrdb():
+    logging.info("Downloading GPCRdb data, please cite this work as indicated on: https://gpcrdb.org/cite_gpcrdb")
+    url = f"http://gpcrdb.org/services/structure/"
+    r = requests.get( url )
+    rj = r.json()
+    return {r["pdb_code"]: r for r in rj}
 
 def generate_filter(hits):
     '''
@@ -122,7 +130,7 @@ def generate_filter(hits):
         accepted_pdbs.append(hit.name[:4].upper())
     return {'subset_pdb': accepted_pdbs}
 
-def empty_search(pdbid, query):
+def empty_search(*args):
     '''
     Placeholder function always returning True regardless of the passed inputs
 
@@ -139,7 +147,7 @@ def empty_search(pdbid, query):
     '''
     return True
 
-def query_gpcrdb_r(pdbid_chain, query):
+def query_gpcrdb_r(pdbid_chain, query, all_entries):
     '''
     Compare the entry for a specific PDBID on GPCRdb to the user defined parameters
 
@@ -162,10 +170,15 @@ def query_gpcrdb_r(pdbid_chain, query):
 
     pdbid, chainid = pdbid_chain.split('_')
 
-    url = f"http://gpcrdb.org/services/structure/{pdbid}/"
-    r = requests.get( url )
-    rj = r.json()
+    rj = all_entries.get(pdbid, {})
 
+    if len(rj) != 0:
+        return compare_gpcrdb_r_entry(pdbid, chainid, query, rj)
+    else:
+        logging.info(f'PDBID: {pdbid} not in GPCRdb')
+        return False
+
+def compare_gpcrdb_r_entry(pdbid, chainid, query, entry):
     special = ['signalling_protein',
                 'apo',
                 'publication_date',
@@ -173,46 +186,45 @@ def query_gpcrdb_r(pdbid_chain, query):
                 'ligand_function',
                 'excluded_protein']
 
-    if len(rj) != 0:
-        #pdb.set_trace()
-        if rj["preferred_chain"] != chainid:
-            return False
-        for key, item in query.items():
-            if item is None:
-                continue
-            if key in special:
-                if key == 'signalling_protein':
-                    if key in rj:
-                        if rj["signalling_protein"]["type"] not in item:
-                            return False
-                    else:
-                        return False
-                elif key == 'apo':
-                    if len(rj['ligands']) != 0 and item:
-                        return False
-                elif key == 'publication_date':
-                    #pdb.set_trace()
-                    date = dt.strptime(item, "%Y-%m-%d")
-                    date_pdb = dt.strptime(rj[key], "%Y-%m-%d")
-                    if date < date_pdb:
-                        return False
-                elif key == 'resolution':
-                    if rj['resolution'] > item:
-                        return False
-                elif key == 'ligand_function':
-                    for lig in rj['ligands']:
-                        if lig['function'] not in item:
-                            return False
-                elif key == 'excluded_protein':
-                    if rj['excluded_protein'] in item:
-                        return False
-            elif key in rj:
-                if rj[key] not in item:
-                    return False
-        return True
-    else:
-        logging.info(f'PDBID: {pdbid} not in GPCRdb')
+    if entry["preferred_chain"] != chainid:
         return False
+    for key, item in query.items():
+        if item is None:
+            continue
+        if key in special:
+            if key == 'signalling_protein':
+                if key in entry:
+                    if entry["signalling_protein"]["type"] not in item:
+                        return False
+                else:
+                    return False
+            elif key == 'apo':
+                if len(entry['ligands']) != 0 and item:
+                    return False
+            elif key == 'publication_date':
+                #pdb.set_trace()
+                date = dt.strptime(item, "%Y-%m-%d")
+                date_pdb = dt.strptime(entry[key], "%Y-%m-%d")
+                if date < date_pdb:
+                    return False
+            elif key == 'resolution':
+                if entry['resolution'] > item:
+                    return False
+            elif key == 'ligand_function':
+                for lig in entry['ligands']:
+                    if lig['function'] not in item:
+                        return False
+            elif key == 'excluded_protein':
+                if entry['protein'] in item:
+                    return False
+        elif key in entry:
+            if entry[key] not in item:
+                return False
+    return True
+
+
+
+
 
 def query_gpcrdb_g(pdbid_chain, query):
     '''
@@ -238,9 +250,7 @@ def query_gpcrdb_g(pdbid_chain, query):
 
     pdbid, chainid = pdbid_chain.split('_')
 
-    url = f"http://gpcrdb.org/services/structure/{pdbid}/"
-    r = requests.get( url )
-    rj = r.json()
+    rj = get_gpcrdb_entry(pdbid)
 
     special = ['publication_date',
                 'resolution',
@@ -300,4 +310,6 @@ def load_template_filter(file):
     with open(file, 'r') as yaml_file:
         yaml_dict = yaml.load(yaml_file, Loader=yaml.loader.SafeLoader)
 
-    return yaml_dict
+    all_entries = get_all_entries(yaml_dict.get('database', 'Empty'))
+
+    return [yaml_dict, all_entries]
