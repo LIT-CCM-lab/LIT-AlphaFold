@@ -14,9 +14,13 @@ Functions for predictions and results handling
 # #
 import json
 import os
-import pickle
+try:
+   import cPickle as pickle
+except:
+   import pickle
 import time
 import logging
+import bz2
 import numpy as np
 
 from alphafold.common import protein
@@ -45,8 +49,11 @@ def get_score_from_result_pkl(pkl_path):
     type of score (iptm+ptm for monomers, mean_plddt for multimers), and structure confidence score: str, list
     """
 
-    with open(pkl_path, "rb") as f:
-        result = pickle.load(f)
+    if pkl_path.endswith('.bz2'):
+        in_file = bz2.BZ2File(pkl_path, "rb")
+    else:
+        in_file = open(pkl_path, 'rb')
+    results = pickle.load(in_file)
     if "iptm" in result:
         score_type = "iptm+ptm"
         score = 0.8 * result["iptm"] + 0.2 * result["ptm"]
@@ -80,10 +87,16 @@ def get_existing_model_info(output_dir, model_runners ):
         pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
         pkl_path = os.path.join(output_dir, f"result_{model_name}.pkl")
 
-        if not (os.path.exists(pdb_path) and os.path.exists(pkl_path)):
+        if not os.path.exists(pdb_path):
+            break
+        if os.path.exists(pkl_path):
+            score_name, score = get_score_from_result_pkl(pkl_path)
+        elif os.path.exists(pkl_path+'.bz2'):
+            score_name, score = get_score_from_result_pkl(pkl_path+'.bz2')
+        else:
             break
 
-        score_name, score = get_score_from_result_pkl(pkl_path)
+        
         ranking_confidences[model_name] = score.tolist()
 
         with open(pdb_path, "r") as f:
@@ -112,6 +125,7 @@ def predict(
     save_recycles: bool = False,
     stop_at_score: float = 100,
     save_all: bool = False,
+    compress_results: bool = True,
 ) -> None:
     '''Run AlphaFold prediction
         Modified version of the ColabFold predict function to include the
@@ -223,8 +237,12 @@ def predict(
 
             
                 if save_all:
-                    with open(os.path.join(output_dir, f"unrelaxed_{model_name}_r{recycles}.pkl", "wb")) as handle:
-                        pickle.dump(result, handle)
+                    tmp_output_path = os.path.join(output_dir, f"unrelaxed_{model_name}_r{recycles}.pkl")
+                    if compress_results:
+                        out_file = bz2.BZ2File(tmp_output_path+'.bz2','w')
+                    else:
+                        out_file = open(tmp_output_path, 'wb')
+                    pickle.dump(result, out_file)
                 del unrelaxed_protein
 
         return_representations = save_all or \
@@ -267,8 +285,13 @@ def predict(
 
         result_output_path = os.path.join(output_dir,
                                         f"result_{model_name}.pkl")
-        with open(result_output_path, "wb") as f:
-            pickle.dump(prediction_result, f, protocol=4)
+
+        
+        if compress_results:
+            out_file = bz2.BZ2File(result_output_path+'.bz2','w')
+        else:
+            out_file = open(result_output_path, 'wb')
+        pickle.dump(prediction_result, out_file)
 
         plddt_b_factors = np.repeat(
             plddt[:, None], residue_constants.atom_type_num, axis=-1
