@@ -59,7 +59,9 @@ def filter_template_hits(hits, query):
     filtered structures: str
     '''
 
-    return template_filter([hit.name for hit in hits], query)
+    hit_names = template_filter([hit.name for hit in hits], query)
+
+    return [hit for hit in hits if hit.name in hit_names]
     
 
 def filter_template_features(feature_dict, query):
@@ -93,7 +95,7 @@ def template_filter(pdbids_chain, query):
         file_name = pdbid_chain.upper()
         if isinstance(pdbid_chain, bytes):
             pdbid = pdbid.decode('utf-8')
-            file_name = pdbid.decode('utf-8')
+            file_name = file_name.decode('utf-8')
         if file_name.upper() in check_duplicates:
             continue
         elif pdbid in query.get('excluded_pdb', []):
@@ -107,8 +109,8 @@ def template_filter(pdbids_chain, query):
             check_duplicates.add(file_name)
             continue
         else:
-            filtered_hits.append(pdbid_chain)
             selected_hits.append(file_name)
+            filtered_hits.append(pdbid_chain)
             check_duplicates.add(file_name)
     if len(excluded_hits) > 0:
         logging.info(f"EXCLUDED templates: {' '.join(excluded_hits)}")
@@ -227,7 +229,6 @@ def compare_gpcrdb_r_entry(pdbid, chainid, query, entry):
                 if len(entry['ligands']) != 0 and item:
                     return False
             elif key == 'publication_date':
-                #pdb.set_trace()
                 date = dt.strptime(item, "%Y-%m-%d")
                 date_pdb = dt.strptime(entry[key], "%Y-%m-%d")
                 if date < date_pdb:

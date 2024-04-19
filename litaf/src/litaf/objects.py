@@ -46,7 +46,9 @@ from colabfold.utils import DEFAULT_API_SERVER
 from alphapulldown.utils import mk_mock_template, check_empty_templates
 
 from litaf.utils import remove_msa_for_template_aligned_regions
-from litaf.filterpdb import filter_template_hits, generate_filter
+from litaf.filterpdb import (filter_template_hits,
+                                filter_template_features,
+                                generate_filter,)
 from litaf.pipeline import make_msa_features, DataPipeline
 from litaf.datatypes import FeatureDict
 
@@ -641,11 +643,11 @@ class MonomericObject:
         new_feature_dict["template_domain_names"] = new_feature_dict["template_domain_names"][idxs]
         new_feature_dict["template_sum_probs"] = new_feature_dict["template_sum_probs"][idxs]
 
-        logging.info(f"New used templates: {' '.join(new_feature_dict['template_domain_names'])}")
+        logging.info(f"New templates: {' '.join([n.decode('utf-8') for n in new_feature_dict['template_domain_names']])}")
 
         return new_feature_dict
 
-    def filter_templates(self, query, query_name, inplace = False):
+    def filter_templates(self, query, query_name = 'query_filter', inplace = False):
         if inplace:
             new_feature_dict = self.feature_dict
             self.description += f'_{query_name}'
