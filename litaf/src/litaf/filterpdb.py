@@ -58,7 +58,24 @@ def filter_template_hits(hits, query):
     ------
     filtered structures: str
     '''
+
+    return template_filter([hit.name for hit in hits], query)
     
+
+def filter_template_features(feature_dict, query):
+    filtered_templates = template_filter(feature_dict['template_domain_names'], query)
+    idxs = [i for i, pdbid in enumerate(feature_dict['template_domain_names']) if pdbid in filtered_templates]
+    feature_dict["template_all_atom_positions"] = feature_dict["template_all_atom_positions"][idxs]
+    feature_dict["template_all_atom_masks"] = feature_dict["template_all_atom_masks"][idxs]
+    feature_dict["template_sequence"] = feature_dict["template_sequence"][idxs]
+    feature_dict["template_aatype"] = feature_dict["template_aatype"][idxs]
+    feature_dict["template_domain_names"] = feature_dict["template_domain_names"][idxs]
+    feature_dict["template_sum_probs"] = feature_dict["template_sum_probs"][idxs]
+
+    return feature_dict
+
+
+def template_filter(pdbids_chain, query):
     database_search = {'GPCRdb_r': query_gpcrdb_r, 'GPCRdb_g': query_gpcrdb_g, 'Empty': empty_search}
 
     #search_function = database_search[query['database']] if query.get('database') in database_search else empty_search
@@ -71,9 +88,12 @@ def filter_template_hits(hits, query):
     selected_hits = list()
     check_duplicates = set()
 
-    for hit in hits:
-        pdbid = hit.name[:4].upper()
-        file_name = hit.name.split()[0].upper()
+    for pdbid_chain in pdbids_chain:
+        pdbid = pdbid_chain[:4].upper()
+        file_name = pdbid_chain.upper()
+        if isinstance(pdbid_chain, bytes):
+            pdbid = pdbid.decode('utf-8')
+            file_name = pdbid.decode('utf-8')
         if file_name.upper() in check_duplicates:
             continue
         elif pdbid in query.get('excluded_pdb', []):
@@ -87,17 +107,17 @@ def filter_template_hits(hits, query):
             check_duplicates.add(file_name)
             continue
         else:
-            filtered_hits.append(hit)
+            filtered_hits.append(pdbid_chain)
             selected_hits.append(file_name)
-            #logging.info(f"Selected template: {file_name}")
             check_duplicates.add(file_name)
     if len(excluded_hits) > 0:
         logging.info(f"EXCLUDED templates: {' '.join(excluded_hits)}")
     if len(excluded_query_hits) > 0:
         logging.info(f"EXCLUDED templates: {' '.join(excluded_query_hits)}")
     if len(excluded_hits) > 0 or len(excluded_query_hits) > 0:
-        logging.info(f"Ten best selected templates: {' '.join(selected_hits[:10])}")
+        logging.info(f"Selected templates: {' '.join(selected_hits)}")
     return filtered_hits
+
 
 def get_all_entries(db):
     if db in ['GPCRdb_r', 'GPCRdb_g']:
@@ -105,12 +125,14 @@ def get_all_entries(db):
     else:
         return None
 
+
 def get_all_gpcrdb():
     logging.info("Downloading GPCRdb data, please cite this work as indicated on: https://gpcrdb.org/cite_gpcrdb")
     url = f"http://gpcrdb.org/services/structure/"
     r = requests.get( url )
     rj = r.json()
     return {r["pdb_code"]: r for r in rj}
+
 
 def generate_filter(hits):
     '''
@@ -130,6 +152,7 @@ def generate_filter(hits):
         accepted_pdbs.append(hit.name[:4].upper())
     return {'subset_pdb': accepted_pdbs}
 
+
 def empty_search(*args):
     '''
     Placeholder function always returning True regardless of the passed inputs
@@ -146,6 +169,7 @@ def empty_search(*args):
     The PDBID structure matches the query requirements: bool
     '''
     return True
+
 
 def query_gpcrdb_r(pdbid_chain, query, all_entries):
     '''
@@ -177,6 +201,7 @@ def query_gpcrdb_r(pdbid_chain, query, all_entries):
     else:
         logging.info(f'PDBID: {pdbid} not in GPCRdb')
         return False
+
 
 def compare_gpcrdb_r_entry(pdbid, chainid, query, entry):
     special = ['signalling_protein',
@@ -221,9 +246,6 @@ def compare_gpcrdb_r_entry(pdbid, chainid, query, entry):
             if entry[key] not in item:
                 return False
     return True
-
-
-
 
 
 def query_gpcrdb_g(pdbid_chain, query):
@@ -292,6 +314,7 @@ def query_gpcrdb_g(pdbid_chain, query):
     else:
         logging.info(f'PDBID: {pdbid} not in GPCRdb')
         return False
+
 
 def load_template_filter(file):
     '''

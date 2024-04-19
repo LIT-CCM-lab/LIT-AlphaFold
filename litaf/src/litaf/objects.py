@@ -34,6 +34,7 @@ from alphafold.data import (parsers,
                             feature_processing,
                             templates)
 from alphafold.data.tools import hhsearch
+from alphafold.data.feature_processing import MAX_TEMPLATES, MSA_CROP_SIZE
 from alphafold.common import residue_constants
 
 from colabfold.batch import (unserialize_msa,
@@ -400,14 +401,19 @@ class MonomericObject:
             <https://onlinelibrary.wiley.com/doi/full/10.1002/prot.26382>`__
 
         '''
+
+        if inplace:
+            new_feature_dict = self.feature_dict
+            self.description += '_no_template_msa'
+        else:
+            new_feature_dict = self.feature_dict.copy()
+
         logging.info('By using the tool "Template MSA removal" please cite:\n\
                 Heo, L, Feig, M.\n\
                 Multi-state modeling of G-protein coupled receptors at experimental accuracy.\n\
                 Proteins. 2022; 90(11): 1873-1885. doi:10.1002/prot.26382')
-        new_feature_dict = remove_msa_for_template_aligned_regions(self.feature_dict.copy())
-        if inplace:
-            self.feature_dict = new_feature_dict
-            self.description += '_no_template_msa'
+        remove_msa_for_template_aligned_regions(new_feature_dict)
+        
         return new_feature_dict
 
     def remove_msa_features(self, inplace = False):
@@ -416,16 +422,17 @@ class MonomericObject:
         The MSA features are removed, only the input sequence is left.
 
         '''
-        a3m_lines = pipeline.parsers.parse_a3m(f'>{self.description}\n{self.sequence}')
-        new_msa_feature = make_msa_features([a3m_lines])
 
         if inplace:
-            self.feature_dict.update(new_msa_feature)
+            new_feature_dict = self.feature_dict
             self.description += '_no_msa_features'
-            return self.feature_dict
         else:
             new_feature_dict = self.feature_dict.copy()
-            return new_feature_dict.update(new_msa_feature)
+
+        a3m_lines = pipeline.parsers.parse_a3m(f'>{self.description}\n{self.sequence}')
+        new_msa_feature = make_msa_features([a3m_lines])
+        
+        return new_feature_dict.update(new_msa_feature)
 
     def mutate_msa(self, pos_res, inplace = False, paired=False, unpaired=True):
         '''Mutate specific postions of the monomer MSA
@@ -439,6 +446,14 @@ class MonomericObject:
             PLOS Computational Biology, 2022, 18.8: e1010483.
             <https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1010483>`__
         '''
+
+        if inplace:
+            new_feature_dict = self.feature_dict
+            self.description += f'_mutated_{p}{u}_' + '_'.join([str(k) for k in pos_res.keys()])
+        else:
+            new_feature_dict = self.feature_dict.copy()
+
+
         logging.info('By using the tool "MSA point mutation" please cite:\n\
                 STEIN, Richard A.; MCHAOURAB, Hassane S.\n\
                 SPEACH_AF: Sampling protein ensembles and conformational heterogeneity with Alphafold2.\n\
@@ -455,24 +470,22 @@ class MonomericObject:
             if paired:
                 mutated_pmsa[:,i] = [int_mut if r != 21 else 21 for r in mutated_pmsa[:,i]]
                 logging.info(f'Mutating pMSA in position {i} to residue {mut}')
-        if inplace:
-            self.feature_dict['msa'] = mutated_msa
-            self.feature_dict['msa_all_seq'] = mutated_pmsa
-            self.description += f'_mutated_{p}{u}_' + '_'.join([str(k) for k in pos_res.keys()])
-            return self.feature_dict
-        else:
-            new_feature_dict = self.feature_dict.copy()
-            new_feature_dict['msa'] = mutated_msa
-            new_feature_dict['msa_all_seq'] = mutated_pmsa
-            return new_feature_dict
+        
+        new_feature_dict['msa'] = mutated_msa
+        new_feature_dict['msa_all_seq'] = mutated_pmsa
+        return new_feature_dict
 
     def remove_templates(self, inplace = False):
         '''Remove template features
         '''
-        new_feature_dict = mk_mock_template(self.feature_dict)
         if inplace:
-            self.feature_dict = new_feature_dict
+            new_feature_dict = self.feature_dict
             self.description += '_no_template'
+        else:
+            new_feature_dict = self.feature_dict.copy()
+
+        new_feature_dict = mk_mock_template(new_feature_dict)
+        
         return new_feature_dict
 
     def remove_msa_region(self, regions, inplace = False, paired=False, unpaired=True):
@@ -482,7 +495,16 @@ class MonomericObject:
 
         p = 'p' if paired else ''
         u = 'u' if unpaired else ''
-        new_feature_dict = self.feature_dict.copy()
+
+        if p == u:
+            raise ValueError("User must select at least one region of the MSA to mutate")
+
+        if inplace:
+            new_feature_dict = self.feature_dict
+            self.description += f'_removed_msa_region_{p}{u}_' + '_'.join([f'{idx1+1}-{idx2+1}' for idx1, idx2 in regions])
+        else:
+            new_feature_dict = self.feature_dict.copy()
+
         for idx_1, idx_2 in regions:
             if unpaired:
                 new_feature_dict['deletion_matrix_int'][:,idx_1:idx_2] = 0
@@ -490,11 +512,7 @@ class MonomericObject:
             if paired:
                 new_feature_dict['deletion_matrix_int_all_seq'][:,idx_1:idx_2] = 0
                 new_feature_dict['msa_all_seq'][:,idx_1:idx_2] = 21
-        if inplace:
-            self.feature_dict = new_feature_dict
-            self.description += f'_removed_msa_region_{p}{u}_' + '_'.join([f'{idx1+1}-{idx2+1}' for idx1, idx2 in regions])
 
-        return new_feature_dict
 
     def scan_cluster_msa(self, min_eps, max_eps, step_eps, min_samples):
         logging.info("Performing scanning before MSA clustering")
@@ -603,13 +621,19 @@ class MonomericObject:
     def shuffle_templates(self, inplace = False):
         '''Shuffle tempaltes
         '''
+        if inplace:
+            new_feature_dict = self.feature_dict
+            self.description += '_shuffled_templates'
+        else:
+            new_feature_dict = self.feature_dict.copy()
+
         logging.info('By using the "Templat shuffle" tool please cite:\n\
             SALA Davide; HILDEBRAND Peter W.; and MEILER Jens\n\
             Biasing AlphaFold2 to predict GPCRs and kinases with user-defined functional or structural properties.\n\
-            Frontiers Molecular Biosciences 10:1121962. doi: 10.3389/fmolb.2023.1121962')
-        new_feature_dict = self.feature_dict.copy()
+            Frontiers Molecular Biosciences 10:1121962. doi: 10.3389/fmolb.2023.1121962')        
         idxs = np.arange(new_feature_dict["template_sequence"].shape[0])
         np.random.shuffle(idxs)
+        idxs = idxs[:MAX_TEMPLATES]
         new_feature_dict["template_all_atom_positions"] = new_feature_dict["template_all_atom_positions"][idxs]
         new_feature_dict["template_all_atom_masks"] = new_feature_dict["template_all_atom_masks"][idxs]
         new_feature_dict["template_sequence"] = new_feature_dict["template_sequence"][idxs]
@@ -617,12 +641,18 @@ class MonomericObject:
         new_feature_dict["template_domain_names"] = new_feature_dict["template_domain_names"][idxs]
         new_feature_dict["template_sum_probs"] = new_feature_dict["template_sum_probs"][idxs]
 
-        logging.info(f"New top four templates: {new_feature_dict['template_domain_names'][:4]}")
+        logging.info(f"New used templates: {' '.join(new_feature_dict['template_domain_names'])}")
 
-        if inplace:
-            self.feature_dict = new_feature_dict
-            self.description += '_shuffled_templates'
         return new_feature_dict
+
+    def filter_templates(self, query, query_name, inplace = False):
+        if inplace:
+            new_feature_dict = self.feature_dict
+            self.description += f'_{query_name}'
+        else:
+            new_feature_dict = self.feature_dict.copy()
+
+        return filter_template_features(new_feature_dict, query)
 
 
 class MonomericObjectMmseqs2(MonomericObject):
@@ -1181,8 +1211,6 @@ class MultimericObject:
             multimer features: FeatureDict
         ------
         """
-        MAX_TEMPLATES = 4
-        MSA_CROP_SIZE = 2048
         feature_processing.process_unmerged_features(all_chain_features)
         np_chains_list = list(all_chain_features.values())
         if not self.pair_msa:

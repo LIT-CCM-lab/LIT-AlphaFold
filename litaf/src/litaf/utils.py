@@ -181,7 +181,6 @@ def remove_msa_for_template_aligned_regions(feature_dict):
                 mask[i] = True              
     feature_dict['deletion_matrix_int'][:,mask] = 0
     feature_dict['msa'][:,mask] = 21
-    return feature_dict
 
 
 def setup_logging(log_file):
