@@ -83,7 +83,7 @@ def get_existing_model_info(output_dir, model_runners ):
     processed_models = 0
     score_name = None
 
-    for model_name, _ in model_runners.items():
+    for model_name in model_runners.keys():
         pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
         pkl_path = os.path.join(output_dir, f"result_{model_name}.pkl")
 
@@ -364,7 +364,8 @@ def predict(
 
     if (not os.path.exists(ranking_output_path) or 
         not allow_resume or 
-        os.stat(ranking_output_path).st_size == 0): 
+        os.stat(ranking_output_path).st_size == 0 or
+        START > 0): 
         # already exists if restored.
         with open(ranking_output_path, "w") as f:
             f.write(

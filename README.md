@@ -1,20 +1,23 @@
 # LIT-AlphaFold
 
+<img src="LITAF_graphical_abstract.png" alt="LITAF_graphical_abstract"/>
+
 ## Description
 
 LIT-AlphaFold is a modified version of AlphaFold developed in the [Laboratoire d'Innovation Thérapeutique](https://medchem.unistra.fr/)(LIT) at the University of Strasbourg.
 
 LIT-AlphaFold combines features from [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown) and [ColabFold](https://github.com/sokrypton/ColabFold), while including additional tools for multistate modelling.
 
-Different tools for MSA editing (clustering, masking, mutation, subsampling), and template selection are avaialble. All these methods have been used for mutlistate modelling of a target protein or protein-protein complex, generating different conformational states from the one predicted by default AlphaFold.
+Different tools for MSA editing (clustering, masking, mutation, subsampling), and template selection are avaialble. By using these tools it is possible to generate alternative conformations of protein and protein-protein complexes, compared to the default AlphaFold pipelines.
 
 The pipeline is available for both local installation and online use on [Google Colab](https://colab.research.google.com/github/LIT-CCM-lab/LIT-AlphaFold/blob/main/LIT-AlphaFold-Colab.ipynb)
 
 ## Pre-installation
 
-Before installing LIT-AlphaFold we advice to download AlphaFold's weights and the related genetic databases. To do so please follow the instructions in https://github.com/kalininalab/alphafold_non_docker.
+Before installing LIT-AlphaFold we advise to download AlphaFold's weights and the related genetic databases. To do so please follow the instructions in https://github.com/kalininalab/alphafold_non_docker.
 
-LIT-AlphaFold **does not** require to download the genetic databases since it is configured to also use the *MMseqs2* webserver for MSA generation, as in ColabFold. 
+LIT-AlphaFold **does not** require to download the genetic databases since it is configured to also use the *MMseqs2* webserver for MSA generation, as in ColabFold.
+
 The models' weights **must** be downloaded since LIT-AlphaFold has been developed to run calculations locally.
 
 ## Installation
@@ -57,24 +60,24 @@ Google Colab implementation of the tutorials are also available:
 ## How to reference this work ?
 If you are using **LIT-AlphaFold** please cite:
 - Urvas L, Chiesa L, Bret G, Jaquemard C, and Kellenberger E.  <br />
-  Benchmarking AlphaFold-generated structures of chemokine – chemokine receptor complexes. <br />
-  Manuscript under review
+  *Benchmarking AlphaFold-generated structures of chemokine – chemokine receptor complexes.* <br />
+  Journal of Chemical Information and Modeling (**2024**) doi: [10.1021/acs.jcim.3c01835](https://pubs.acs.org/doi/10.1021/acs.jcim.3c01835)
 - Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S, and Steinegger M. <br />
-  ColabFold: Making protein folding accessible to all. <br />
-  Nature Methods (2022) doi: [10.1038/s41592-022-01488-1](https://www.nature.com/articles/s41592-022-01488-1)
+  *ColabFold: Making protein folding accessible to all.* <br />
+  Nature Methods (**2022**) doi: [10.1038/s41592-022-01488-1](https://www.nature.com/articles/s41592-022-01488-1)
 - Yu D, Chojnowski G, Rosenthal M, and Kosinski J.  <br />
-  AlphaPulldown—a python package for protein–protein interaction screens using AlphaFold-Multimer. <br />
-  Bioinformatics (2023) doi: [10.1093/bioinformatics/btac749](https://academic.oup.com/bioinformatics/article/39/1/btac749/6839971)
+  *AlphaPulldown—a python package for protein–protein interaction screens using AlphaFold-Multimer.* <br />
+  Bioinformatics (**2023**) doi: [10.1093/bioinformatics/btac749](https://academic.oup.com/bioinformatics/article/39/1/btac749/6839971)
 
 If you’re using **AlphaFold**, please also cite: <br />
 - Jumper et al. <br />
-  Highly accurate protein structure prediction with AlphaFold. <br />
-  Nature (2021) doi: [10.1038/s41586-021-03819-2](https://doi.org/10.1038/s41586-021-03819-2)
+  *Highly accurate protein structure prediction with AlphaFold.* <br />
+  Nature (**2021**) doi: [10.1038/s41586-021-03819-2](https://doi.org/10.1038/s41586-021-03819-2)
   
 If you’re using **AlphaFold-multimer**, please also cite: <br />
 - Evans et al.<br />
-  Protein complex prediction with AlphaFold-Multimer. <br />
-  biorxiv (2021) doi: [10.1101/2021.10.04.463034v1](https://www.biorxiv.org/content/10.1101/2021.10.04.463034v1)
+  *Protein complex prediction with AlphaFold-Multimer.* <br />
+  biorxiv (**2021**) doi: [10.1101/2021.10.04.463034v1](https://www.biorxiv.org/content/10.1101/2021.10.04.463034v1)
 
 If you are using **MMseqs2**, please also use the appropriate citation in: [MMseqs2](https://github.com/soedinglab/MMseqs2)
 

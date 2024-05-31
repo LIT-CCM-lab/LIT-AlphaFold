@@ -7,7 +7,7 @@ name = 'litaf'
 version = '1.0'
 authors = [{name = 'Luca Chiesa', email = 'luca.chiesa@unistra.com'}]
 description = 'Python module for multistate modelling using AlphaFold and AlphaFold-Multimer'
-license = {text = "MIT License"}
+license = {text = "GPL-3.0 license"}
 requires-python = ">=3.10"
 dependencies = ['colabfold==1.5.3']
 

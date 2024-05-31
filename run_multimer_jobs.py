@@ -248,9 +248,6 @@ def predict_multimers(
                             FLAGS.cluster_profile,
                             FLAGS.save_all)
         random_seed = random.randrange(sys.maxsize // len(model_runners))
-        logging.info(
-            f"Using base random seed {random_seed} for the predictions"
-            )
 
         for obj in t_multi:
             logging.info('Multimer object: '+obj.description)
@@ -277,9 +274,6 @@ def predict_multimers(
                             FLAGS.cluster_profile,
                             FLAGS.save_all)
         random_seed = random.randrange(sys.maxsize // len(model_runners))
-        logging.info(
-            f"Using base random seed {random_seed} for the predictions"
-            )
         for obj in t_mono:
             logging.info('Monomer object: '+obj.description)
             predict_individual_jobs(
