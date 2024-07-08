@@ -53,7 +53,7 @@ def get_score_from_result_pkl(pkl_path):
         in_file = bz2.BZ2File(pkl_path, "rb")
     else:
         in_file = open(pkl_path, 'rb')
-    results = pickle.load(in_file)
+    result = pickle.load(in_file)
     if "iptm" in result:
         score_type = "iptm+ptm"
         score = 0.8 * result["iptm"] + 0.2 * result["ptm"]

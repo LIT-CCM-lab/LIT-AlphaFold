@@ -268,10 +268,10 @@ class MonomericObject:
         if self.template_hits is None:
             raise Exception('There is no information about the templates for the monomer')
         if filter_t is None:
-            filter_t = {}
-
-        filtered_templates = filter_template_hits(self.template_hits, filter_t)
-        self.filter_pdb_results = generate_filter(filtered_templates)
+            filtered_templates = self.template_hits
+        else:
+            filtered_templates = filter_template_hits(self.template_hits, filter_t)
+            self.filter_pdb_results = generate_filter(filtered_templates)
 
         templates_result = template_featuriser.get_templates(
             query_sequence=self.sequence, hits=filtered_templates
@@ -291,7 +291,7 @@ class MonomericObject:
         use_precomputed_msa=False,
         save_msa=True,
         paired_msa = True,
-        filter_t={},
+        filter_t=None,
     ) -> None:
         """A method that make msa and template features
         
@@ -693,7 +693,7 @@ class MonomericObjectMmseqs2(MonomericObject):
         DEFAULT_API_SERVER: str,
         output_dir: str ='',
         templates_path: str ='mmseqs2',
-        filter_t : dict = {},
+        filter_t : dict = None,
         max_template_date : str ='2100-01-01', 
         msa_mode : str = "MMseqs2 (UniRef+Environmental)",
         template_mmcif_dir : str = None,
