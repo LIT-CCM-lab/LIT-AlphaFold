@@ -336,6 +336,11 @@ def predict(
         to_relax = []
 
     for model_name in to_relax:
+        relaxed_output_path = os.path.join(
+            output_dir, f'relaxed_{model_name}.pdb')
+        if os.path.isfile(relaxed_output_path):
+            logging.info(f'Found existing relaxed structure for: {relaxed_output_path}')
+            continue
         t_0 = time.time()
         relaxed_pdb_str, _, violations = amber_relaxer.process(
             prot=unrelaxed_proteins[model_name])
@@ -348,8 +353,6 @@ def predict(
         relaxed_pdbs[model_name] = relaxed_pdb_str
 
         # Save the relaxed PDB.
-        relaxed_output_path = os.path.join(
-            output_dir, f'relaxed_{model_name}.pdb')
         with open(relaxed_output_path, 'w') as f:
             f.write(relaxed_pdb_str)
 

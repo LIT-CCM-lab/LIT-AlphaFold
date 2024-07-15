@@ -6,6 +6,7 @@ Submodule containing utility functions
 import logging
 from absl import logging as absl_logging
 import yaml
+import os
 
 import py3Dmol
 
