@@ -1,6 +1,6 @@
 hydra:
   run:
-    dir: prediction_outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: hydra_prediction/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 defaults:
   - run: default
