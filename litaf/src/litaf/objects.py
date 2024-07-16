@@ -51,6 +51,7 @@ from litaf.filterpdb import (filter_template_hits,
                                 generate_filter,)
 from litaf.pipeline import make_msa_features, DataPipeline
 from litaf.datatypes import FeatureDict
+from litaf.rename import *
 
 #Added for MSA clustering
 from polyleven import levenshtein
@@ -406,7 +407,7 @@ class MonomericObject:
 
         if inplace:
             new_feature_dict = self.feature_dict
-            self.description += '_no_template_msa'
+            self.description = rename_remove_template_from_msa(self.description)
         else:
             new_feature_dict = self.feature_dict.copy()
 
@@ -427,7 +428,7 @@ class MonomericObject:
 
         if inplace:
             new_feature_dict = self.feature_dict
-            self.description += '_no_msa_features'
+            self.description = rename_remove_msa_features(self.description)
         else:
             new_feature_dict = self.feature_dict.copy()
 
@@ -451,7 +452,7 @@ class MonomericObject:
 
         if inplace:
             new_feature_dict = self.feature_dict
-            self.description += f'_mutated_{p}{u}_' + '_'.join([str(k) for k in pos_res.keys()])
+            self.description = rename_mutate_msa(self.description, pos_res, paired, unpaired) 
         else:
             new_feature_dict = self.feature_dict.copy()
 
@@ -462,8 +463,7 @@ class MonomericObject:
                 PLOS Computational Biology, 2022, 18.8: e1010483. doi:10.1371/journal.pcbi.1010483')
         mutated_msa = self.feature_dict['msa'].copy()
         mutated_pmsa = self.feature_dict['msa_all_seq'].copy()
-        p = 'p' if paired else ''
-        u = 'u' if unpaired else ''
+        
         for i, mut in pos_res.items():
             int_mut = residue_constants.HHBLITS_AA_TO_ID[mut]
             if unpaired:
@@ -482,7 +482,7 @@ class MonomericObject:
         '''
         if inplace:
             new_feature_dict = self.feature_dict
-            self.description += '_no_template'
+            self.description = rename_remove_templates(self.description)
         else:
             new_feature_dict = self.feature_dict.copy()
 
@@ -495,15 +495,16 @@ class MonomericObject:
         '''
         #regions should be passed as iterator like [(first_residue, last_residue)]
 
-        p = 'p' if paired else ''
-        u = 'u' if unpaired else ''
+        #p = 'p' if paired else ''
+        #u = 'u' if unpaired else ''
 
-        if p == u:
-            raise ValueError("User must select at least one region of the MSA to mutate")
+        if not paired and not unpaired:
+           raise ValueError("User must select at least one region of the MSA to mutate")
 
         if inplace:
             new_feature_dict = self.feature_dict
-            self.description += f'_removed_msa_region_{p}{u}_' + '_'.join([f'{idx1+1}-{idx2+1}' for idx1, idx2 in regions])
+            self.description = rename_remove_msa_region(self.description, regions, p, u)
+            #self.description += f'_removed_msa_region_{p}{u}_' + '_'.join([f'{idx1+1}-{idx2+1}' for idx1, idx2 in regions])
         else:
             new_feature_dict = self.feature_dict.copy()
 
@@ -620,12 +621,12 @@ class MonomericObject:
         return embedding[1:], embedding[0].reshape((1,-1))
 
 
-    def shuffle_templates(self, inplace = False):
+    def shuffle_templates(self, seed = 0, inplace = False):
         '''Shuffle tempaltes
         '''
         if inplace:
             new_feature_dict = self.feature_dict
-            self.description += '_shuffled_templates'
+            self.description = rename_shuffle_templates(self.description, seed)
         else:
             new_feature_dict = self.feature_dict.copy()
 
@@ -634,7 +635,8 @@ class MonomericObject:
             Biasing AlphaFold2 to predict GPCRs and kinases with user-defined functional or structural properties.\n\
             Frontiers Molecular Biosciences 10:1121962. doi: 10.3389/fmolb.2023.1121962')        
         idxs = np.arange(new_feature_dict["template_sequence"].shape[0])
-        np.random.shuffle(idxs)
+        rng = np.random.default_rng(seed = seed)
+        rng.shuffle(idxs)
         idxs = idxs[:MAX_TEMPLATES]
         new_feature_dict["template_all_atom_positions"] = new_feature_dict["template_all_atom_positions"][idxs]
         new_feature_dict["template_all_atom_masks"] = new_feature_dict["template_all_atom_masks"][idxs]

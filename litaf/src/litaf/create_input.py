@@ -14,6 +14,7 @@ import itertools
 import copy
 
 import logging
+import yaml
 
 from litaf.utils import (read_custom,
                         read_all_proteins,
@@ -21,6 +22,7 @@ from litaf.utils import (read_custom,
                         make_dir_monomer_dictionary)
 
 from litaf.objects import MultimericObject, ChoppedObject, load_monomer_objects
+from litaf.rename import *
 
 def create_interactors_colab(data,
             monomer_objects_dict,
@@ -83,7 +85,7 @@ def create_interactors_colab(data,
             )
     return interactors
 
-def create_interactors(data,
+def create_interactors(entries,
             monomer_objects_dir,
             remove_msa,
             remove_template_msa,
@@ -121,39 +123,103 @@ def create_interactors(data,
     ------
     Monomers prepared for prediction and processing: list of MonomericObject
     """
-    interactors = []
+    interactors_obj = []
     monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
-    for d in data:
-        logging.info(f"Processing {d['protein_name']}")
-        monomer = load_monomer_objects(monomer_dir_dict, d['protein_name'])
+    for entry in entries:
+        for e in entry:
+            e['remove_msa'] = e.get('remove_msa', remove_msa)
+            e['remove_msa_templates'] =  e.get('remove_msa_templates', remove_template_msa)
+            e['remove_templates'] =  e.get('remove_templates', remove_templates)
+            e['mutate_msa'] =  e.get('mutate_msa', mutate_msa)
+            e['remove_msa_region'] = e.get('remove_msa_region', remove_msa_region)
+            e['shuffle_templates'] = e.get('shuffle_templates', shuffle_templates)
+            e['paired'] =  e.get('paired', paired_msa)
+            e['unpaired'] =  e.get('unpaired', unpaired_msa)
 
-        if isinstance(monomer, MultimericObject):
-            return [monomer]
+    all_monomers, interactors_list = load_monomers(entries, monomer_dir_dict)
+    for i,interactors in enumerate(interactors_list):
+        interactors_obj.append([])
+        for interactor, e in zip(interactors, entries[i]):
+            interactors_obj[-1].append(copy.deepcopy(all_monomers[interactor]))
+            if e.get('monomer'):
+                interactors_obj[-1][-1].description = e.get('monomer')
 
-        monomer = modify_monomer(d,
-                    monomer,
-                    remove_msa,
-                    remove_template_msa,
-                    remove_templates,
-                    mutate_msa,
-                    remove_msa_region,
-                    shuffle_templates,
-                    paired_msa ,
-                    unpaired_msa)
+    return interactors_obj
 
-        interactors.append(monomer)
-    return interactors
 
-def modify_monomer(d,
-                    monomer,
-                    remove_msa,
-                    remove_template_msa,
-                    remove_templates,
-                    mutate_msa,
-                    remove_msa_region,
-                    shuffle_templates,
-                    paired_msa = False,
-                    unpaired_msa = True):
+
+def read_yaml(file):
+    with open(file, 'r') as f:
+        data = f.read()
+    return [y for y in yaml.load_all(data, Loader=yaml.Loader)]
+
+def read_homomer(file):
+    yaml_data = read_yaml(file)
+    monomers = []
+    for homo in yaml_data:
+        if isinstance(homo['monomer'], str):
+            homo['monomer'] = {'protein_name': homo['monomer']}
+
+    return [[y] for y in yaml_data]
+
+def read_proteins(file):
+    yaml_data = read_yaml(file)
+    return [[{'protein': y}] if isinstance(y, str) else [y] for y in yaml_data]
+
+def read_custom(file):
+    yaml_data = read_yaml(file)
+    for i, multi in enumerate(yaml_data):
+        for j, mono in enumerate(multi):
+            if isinstance(mono, str):
+                yaml_data[i][j] = {'protein_name': mono}
+
+    return yaml_data
+
+def load_monomers(entries, monomer_dir_dict):
+    interactors = {}
+    structure_list = []
+
+    for entry in entries:
+        structure_list.append([])
+        for e in entry:
+            e_name = get_interactor_name(e)
+            if e_name not in interactors:
+                logging.info(f"Processing {e['protein_name']}")
+                monomer = load_monomer_objects(monomer_dir_dict, e['protein_name'])
+                if not isinstance(monomer, MultimericObject):
+                    monomer = modify_monomer(e, monomer)
+                interactors[e_name] = monomer
+
+            structure_list[-1].append(e_name)
+
+    return interactors, structure_list
+
+
+def get_interactor_name(interactor):
+    name = interactor['protein_name']
+    if interactor.get('remove_msa_region'):
+        name = rename_remove_msa_region(name,
+                                        interactor.get('remove_msa_region'),
+                                        interactor.get('paired', False),
+                                        interactor.get('unpaired', True),)
+    if interactor.get('mutate_msa'):
+        name = rename_mutate_msa(name,
+                                        interactor.get('mutate_msa'),
+                                        interactor.get('paired', False),
+                                        interactor.get('unpaired', True),)  
+    if interactor.get('remove_template_msa'):
+        name = rename_remove_template_from_msa(name)
+    if interactor.get('remove_monomer_msa'):
+        name = rename_remove_msa_features(name)
+    if interactor.get('remove_templates'):
+        name = rename_remove_templates(name)
+    if interactor.get('shuffle_templates'):
+        name = rename_remove_templates(name, interactor.get('shuffle_templates'))
+    return name
+
+
+def modify_monomer(d, monomer):
+
     if d.get('selected_residues'):
         logging.info(
             f"creating chopped monomer with residues" \
@@ -175,44 +241,27 @@ def modify_monomer(d,
             inplace = True,
             paired = paired_msa,
             unpaired = unpaired_msa)
-    elif remove_msa_region:
-        msa_region_string = ','.join(
-            [f'{i}-{j}' for i,j in remove_msa_region]
-            )
-        logging.info(
-            f'removing MSA data from the regions {msa_region_string}'
-            )
-        monomer.remove_msa_region(remove_msa_region,
-                                    inplace = True,
-                                    paired = paired_msa,
-                                    unpaired = unpaired_msa)
 
     if d.get('mutate_msa'):
         logging.info(f"Mutating MSA as: {d.get('mutate_msa')}")
         monomer.mutate_msa(d.get('mutate_msa'),
                             inplace = True,
-                            paired = paired_msa,
-                            unpaired = unpaired_msa)
-    elif mutate_msa:
-        logging.info(f'Mutating MSA as: {mutate_msa}')
-        monomer.mutate_msa(mutate_msa,
-                            inplace = True,
-                            paired = paired_msa,
-                            unpaired = unpaired_msa)
+                            paired = d.get('paired'),
+                            unpaired = d.get('unpaired'))
 
-    if d.get('remove_msa_templates') or remove_template_msa:
+    if d.get('remove_msa_templates'):
         logging.info('Removing template information from the MSA')
         monomer.remove_template_from_msa(inplace = True)
 
-    if d.get('remove_monomer_msa') or remove_msa:
+    if d.get('remove_monomer_msa'):
         logging.info('Removing monomer MSA')
         monomer.remove_msa_features(inplace = True)
 
-    if d.get('remove_templates') or remove_templates:
+    if d.get('remove_templates'):
         logging.info('Removing template data')
         monomer.remove_templates(inplace = True)
 
-    if d.get('shuffle_templates') or shuffle_templates:
+    if d.get('shuffle_templates'):
         logging.info('Shuffling templates')
         monomer.shuffle_templates(inplace = True)
 
@@ -263,18 +312,18 @@ def create_multimer_objects(
 
     multimers = []
 
-    for multi in data:
-        interactors = create_interactors(
-            multi,
-            monomer_objects_dir,
-            remove_msa=remove_msa,
-            remove_template_msa=remove_template_msa,
-            remove_templates = remove_templates,
-            mutate_msa = mutate_msa,
-            remove_msa_region = remove_msa_region,
-            shuffle_templates=shuffle_templates,
-            unpaired_msa=unpaired_msa,
-            paired_msa=paired_msa)
+    interactors_list = create_interactors(
+        data,
+        monomer_objects_dir,
+        remove_msa=remove_msa,
+        remove_template_msa=remove_template_msa,
+        remove_templates = remove_templates,
+        mutate_msa = mutate_msa,
+        remove_msa_region = remove_msa_region,
+        shuffle_templates=shuffle_templates,
+        unpaired_msa=unpaired_msa,
+        paired_msa=paired_msa)
+    for interactors in interactors_list:
         if len(interactors) > 1:
             multimer = MultimericObject(
                 interactors=interactors,
@@ -330,10 +379,10 @@ def create_pulldown(
     ------
     MultimericObject and MonomericObject for prediction: list
     '''
-    bait_proteins = read_all_proteins(proteins_list[0])
+    bait_proteins = read_proteins(proteins_list[0])
     candidate_proteins = []
     for file in proteins_list[1:]:
-        candidate_proteins.append(read_all_proteins(file))
+        candidate_proteins.append(read_proteins(file))
 
     all_protein_pairs = list(
         itertools.product(*[bait_proteins, *candidate_proteins]))
@@ -395,7 +444,7 @@ def create_all_vs_all(
     """
     all_proteins = []
     for file in proteins_list:
-        all_proteins = all_proteins+read_all_proteins(file)
+        all_proteins = all_proteins+read_proteins(file)
     all_possible_pairs = list(itertools.combinations(all_proteins, 2))
 
     return create_multimer_objects(
@@ -455,35 +504,22 @@ def create_homooligomers(
     MultimericObject and MonomericObject for prediction: list
     """
     multimers = []
-    lines = []
-    for file in oligomer_state_file:
-        with open(file) as f:
-            lines = lines + list(f.readlines())
-            f.close()
-    
-    for line in lines:
-        if len(line.strip()) == 0:
-            continue
-        if len(line.rstrip().split(";")) > 1:
-            data = [obtain_options(line.rstrip().split(";")[0])]
-            num_units = int(line.rstrip().split(";")[1])
-        else:
-            data = [obtain_options(line.rstrip().split(";")[0])]
-            num_units = 1
+    data = read_homomer(oligomer_state_file)
 
-        monomer = create_interactors(data,
-                                    monomer_objects_dir,
-                                    remove_msa=remove_msa,
-                                    remove_template_msa=remove_template_msa,
-                                    remove_templates = remove_templates,
-                                    mutate_msa = mutate_msa,
-                                    remove_msa_region = remove_msa_region,
-                                    shuffle_templates=shuffle_templates,
-                                    unpaired_msa=unpaired_msa,
-                                    paired_msa=paired_msa)[0]
+    interactors = create_interactors(data,
+                                monomer_objects_dir,
+                                remove_msa=remove_msa,
+                                remove_template_msa=remove_template_msa,
+                                remove_templates = remove_templates,
+                                mutate_msa = mutate_msa,
+                                remove_msa_region = remove_msa_region,
+                                shuffle_templates=shuffle_templates,
+                                unpaired_msa=unpaired_msa,
+                                paired_msa=paired_msa)[0]
 
-        if num_units > 1:
-            interactors = [monomer] * num_units
+    for interactors, d in zip(interactors, data):
+        if d['n_units'] > 1:
+            interactors = [monomer] * d['n_units']
             homooligomer = MultimericObject(interactors,pair_msa=pair_msa)
             homooligomer.description = f"{monomer.description}_homo_{num_units}er"
             multimers.append(homooligomer)
@@ -539,18 +575,9 @@ def create_custom_jobs(
     MultimericObject and MonomericObject for prediction: list
 
     """
-    lines = []
-    for file in custom_input_file:
-        with open(file) as f:
-            lines = lines + list(f.readlines())
-            f.close()
-
     all_files = []
-    for line in lines:
-        if len(line.strip()) == 0:
-            continue
-        all_files.append(read_custom(line))
-
+    for file in custom_input_file:
+        all_files= all_files + read_custom(file)
 
     return create_multimer_objects(
             all_files,
