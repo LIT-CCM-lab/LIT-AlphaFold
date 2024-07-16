@@ -1,0 +1,2 @@
+use_mmseqs2: True
+use_mmseqs2_templates: False

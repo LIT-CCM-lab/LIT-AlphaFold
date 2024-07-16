@@ -18,9 +18,9 @@ try:
 except:
    import pickle
 
-from absl import app
-from absl import flags
 import yaml
+import hydra
+import shutil
 
 from alphafold.data.tools import hmmsearch, hhsearch
 from alphafold.data import templates
@@ -49,144 +49,66 @@ def output_meta_file(file_path):
         yield outfile.name
 
 
-flags = run_af.flags
-flags.DEFINE_bool("save_msa_files", False,
-                "save msa output or not"
-)
-flags.DEFINE_bool("skip_existing", False,
-                "skip existing monomer feature pickles or not"
-)
-flags.DEFINE_integer("seq_index", None,
-                    "index of sequence in the fasta file, starting from 1"
-)
-flags.DEFINE_string("new_uniclust_dir", None,
-    "directory where new version of uniclust is stored"
-)
-flags.DEFINE_bool("use_mmseqs2",False,
-                "Use mmseqs2 remotely or not. Default is False"
-)
-flags.DEFINE_bool("use_mmseqs2_templates",False,
-                "Use mmseqs2 templates remotely or not. Default is False"
-)
-flags.DEFINE_list('template_filters', [],
-                'List of query for template selection'
-)
-flags.DEFINE_string('custom_template_path', None,
-                'Template containing pdb structure of custom templates'
-)
-flags.DEFINE_string('logger_file', 'feature_generation',
-                'File where to store the results'
-)
-flags.DEFINE_bool('paired_msa', True,
-                  "Search Uniprot for sequences for paired MSA generation"
-)
-flags.DEFINE_bool('compress', True,
-                  "Compress the pkl file to save space"
-)
+def create_soft(cfg):
+    defaults = ['jackhmmer', 'hhblits', 'hhsearch', 'hmmsearch', 'hmmbuild', 'kalign']
+    for k,v in cfg.soft.items():
+        if v in defaults:
+            cfg['soft'][k] = shutil.which(v)
 
-delattr(flags.FLAGS, "data_dir")
-flags.DEFINE_string("data_dir", None, "Path to database directory")
+def create_template_dbs(cfg):
+    if cfg.db.pdb_seqres_database_path is None:
+        cfg.db.pdb_seqres_database_path = os.path.join(
+            cfg.db.data_dir, "pdb_seqres", "pdb_seqres.txt"
+        )
 
-FLAGS = flags.FLAGS
-MAX_TEMPLATE_HITS = 20
+    # Path to a directory with template mmCIF structures, each named <pdb_id>.cif.
+    if cfg.db.template_mmcif_dir is None:
+        cfg.db.template_mmcif_dir = os.path.join(cfg.db.data_dir, "pdb_mmcif", "mmcif_files")
 
-flags_dict = FLAGS.flag_values_dict()
+    # Path to a file mapping obsolete PDB IDs to their replacements.
+    if cfg.db.obsolete_pdbs_path is None:
+        cfg.db.obsolete_pdbs_path = os.path.join(cfg.db.data_dir, "pdb_mmcif", "obsolete.dat")
 
-global pdb70_database_path
-global template_mmcif_dir
-pdb70_database_path = None
-template_mmcif_dir = None
+    # Path to pdb70 database
+    if cfg.db.pdb70_database_path is None:
+        pdb70_database_path = os.path.join(cfg.db.data_dir, "pdb70", "pdb70")
 
-def create_global_arguments(flags_dict):
-    global uniref90_database_path
-    global mgnify_database_path
-    global bfd_database_path
-    global small_bfd_database_path
-    global pdb_seqres_database_path
-    global template_mmcif_dir
-    global obsolete_pdbs_path
-    global pdb70_database_path
-    global use_small_bfd
-    global uniref30_database_path
+def create_msa_dbs(cfg):
 
     # Path to the Uniref30 database for use by HHblits.
-    if FLAGS.uniref30_database_path is None:
-        uniref30_database_path = os.path.join(
-            FLAGS.data_dir, "uniref30", "UniRef30_2021_03"
+    if cfg.db.uniref30_database_path is None:
+        cfg.db.uniref30_database_path = os.path.join(
+            cfg.db.data_dir, "uniref30", "UniRef30_2021_03"
         )
-    else:
-        uniref30_database_path = FLAGS.uniref30_database_path
-    flags_dict.update({"uniref30_database_path": uniref30_database_path})
 
-    if FLAGS.uniref90_database_path is None:
-        uniref90_database_path = os.path.join(
-            FLAGS.data_dir, "uniref90", "uniref90.fasta"
+    if cfg.db.uniref90_database_path is None:
+        cfg.db.uniref90_database_path = os.path.join(
+            cfg.db.data_dir, "uniref90", "uniref90.fasta"
         )
-    else:
-        uniref90_database_path = FLAGS.uniref90_database_path
-
-    flags_dict.update({"uniref90_database_path": uniref90_database_path})
 
     # Path to the MGnify database for use by JackHMMER.
-    if FLAGS.mgnify_database_path is None:
-        mgnify_database_path = os.path.join(
-            FLAGS.data_dir, "mgnify", "mgy_clusters_2022_05.fa"
+    if cfg.db.mgnify_database_path is None:
+        cfg.db.mgnify_database_path = os.path.join(
+            cfg.db.data_dir, "mgnify", "mgy_clusters_2022_05.fa"
         )
-    else:
-        mgnify_database_path = FLAGS.mgnify_database_path
-    flags_dict.update({"mgnify_database_path": mgnify_database_path})
 
     # Path to the BFD database for use by HHblits.
-    if FLAGS.bfd_database_path is None:
-        bfd_database_path = os.path.join(
-            FLAGS.data_dir,
+    if cfg.db.bfd_database_path is None:
+        cfg.db.bfd_database_path = os.path.join(
+            cfg.db.data_dir,
             "bfd",
             "bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt",
         )
-    else:
-        bfd_database_path = FLAGS.bfd_database_path
-    flags_dict.update({"bfd_database_path": bfd_database_path})
 
     # Path to the Small BFD database for use by JackHMMER.
-    if FLAGS.small_bfd_database_path is None:
-        small_bfd_database_path = os.path.join(
-            FLAGS.data_dir, "small_bfd", "bfd-first_non_consensus_sequences.fasta"
+    if cfg.db.small_bfd_database_path is None:
+        cfg.db.small_bfd_database_path = os.path.join(
+            cfg.db.data_dir, "small_bfd", "bfd-first_non_consensus_sequences.fasta"
         )
-    else:
-        small_bfd_database_path = FLAGS.small_bfd_database_path
-    flags_dict.update({"small_bfd_database_path": small_bfd_database_path})
 
-    if FLAGS.pdb_seqres_database_path is None:
-        pdb_seqres_database_path = os.path.join(
-            FLAGS.data_dir, "pdb_seqres", "pdb_seqres.txt"
-        )
-    else:
-        pdb_seqres_database_path = FLAGS.pdb_seqres_database_path
-    flags_dict.update({"pdb_seqres_database_path": pdb_seqres_database_path})
+    cfg.db.use_small_bfd = cfg.run.db_preset == "reduced_dbs"
 
-    # Path to a directory with template mmCIF structures, each named <pdb_id>.cif.
-    if FLAGS.template_mmcif_dir is None:
-        template_mmcif_dir = os.path.join(FLAGS.data_dir, "pdb_mmcif", "mmcif_files")
-    else:
-        template_mmcif_dir = FLAGS.template_mmcif_dir
-    flags_dict.update({"template_mmcif_dir": template_mmcif_dir})
-
-    # Path to a file mapping obsolete PDB IDs to their replacements.
-    if FLAGS.obsolete_pdbs_path is None:
-        obsolete_pdbs_path = os.path.join(FLAGS.data_dir, "pdb_mmcif", "obsolete.dat")
-    else:
-        obsolete_pdbs_path = FLAGS.obsolete_pdbs_path
-    flags_dict.update({"obsolete_pdbs_path": obsolete_pdbs_path})
-
-    # Path to pdb70 database
-    if FLAGS.pdb70_database_path is None:
-        pdb70_database_path = os.path.join(FLAGS.data_dir, "pdb70", "pdb70")
-    else:
-        pdb70_database_path = FLAGS.pdb70_database_path
-    flags_dict.update({"pdb70_database_path": pdb70_database_path})
-    use_small_bfd = FLAGS.db_preset == "reduced_dbs"
-
-def create_pipeline() -> DataPipeline:
+def create_pipeline(cfg) -> DataPipeline:
     '''Create the pipeline for MSA and template search
 
     The functions geenrates the pipeline for the search in sequence and
@@ -202,45 +124,45 @@ def create_pipeline() -> DataPipeline:
     DataPipeline: An AlphaFold DataPipeline with the specified binarypaths
         and file paths
     '''
-    if FLAGS.custom_template_path:
+    if cfg.db.custom_template_path:
         template_searcher = hhsearch.HHSearch(
-                                binary_path=FLAGS.hhsearch_binary_path,
+                                binary_path=cfg.soft.hhsearch_binary_path,
                                 databases=[os.path.join(
-                                            FLAGS.custom_template_path,
+                                            cfg.db.custom_template_path,
                                             'pdb70')]
                                 )
         template_featurizer = templates.HhsearchHitFeaturizer(
-                                mmcif_dir=FLAGS.custom_template_path,
-                                max_template_date=FLAGS.max_template_date,
-                                max_hits=MAX_TEMPLATE_HITS,
-                                kalign_binary_path=FLAGS.kalign_binary_path,
+                                mmcif_dir=cfg.db.custom_template_path,
+                                max_template_date=cfg.max_template_date,
+                                max_hits=cfg.max_template_hits,
+                                kalign_binary_path=cfg.soft.kalign_binary_path,
                                 release_dates_path=None,
                                 obsolete_pdbs_path=None,
                                 )
     else:
         template_searcher = hmmsearch.Hmmsearch(
-                                binary_path=FLAGS.hmmsearch_binary_path,
-                                hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-                                database_path=pdb_seqres_database_path,
+                                binary_path=cfg.soft.hmmsearch_binary_path,
+                                hmmbuild_binary_path=cfg.soft.hmmbuild_binary_path,
+                                database_path=cfg.db.pdb_seqres_database_path,
                             )
         template_featurizer=templates.HmmsearchHitFeaturizer(
                                 mmcif_dir=template_mmcif_dir,
-                                max_template_date=FLAGS.max_template_date,
-                                max_hits=MAX_TEMPLATE_HITS,
-                                kalign_binary_path=FLAGS.kalign_binary_path,
-                                obsolete_pdbs_path=obsolete_pdbs_path,
+                                max_template_date=cfg.max_template_date,
+                                max_hits=cfg.max_template_hits,
+                                kalign_binary_path=cfg.soft.kalign_binary_path,
+                                obsolete_pdbs_path=cfg.db.obsolete_pdbs_path,
                                 release_dates_path=None,
                             )
     monomer_data_pipeline = DataPipeline(
-                                jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
-                                hhblits_binary_path=FLAGS.hhblits_binary_path,
-                                uniref90_database_path=uniref90_database_path,
-                                mgnify_database_path=mgnify_database_path,
-                                bfd_database_path=bfd_database_path,
-                                uniref30_database_path=uniref30_database_path,
-                                small_bfd_database_path=small_bfd_database_path,
-                                use_small_bfd=use_small_bfd,
-                                use_precomputed_msas=FLAGS.use_precomputed_msas,
+                                jackhmmer_binary_path=cfg.soft.jackhmmer_binary_path,
+                                hhblits_binary_path=cfg.soft.hhblits_binary_path,
+                                uniref90_database_path=cfg.db.uniref90_database_path,
+                                mgnify_database_path=cfg.db.mgnify_database_path,
+                                bfd_database_path=cfg.db.bfd_database_path,
+                                uniref30_database_path=cfg.db.uniref30_database_path,
+                                small_bfd_database_path=cfg.db.small_bfd_database_path,
+                                use_small_bfd=cfg.db.use_small_bfd,
+                                use_precomputed_msas=cfg.use_precomputed_msas,
                                 template_searcher=template_searcher,
                                 template_featurizer=template_featurizer,
                                 )
@@ -248,7 +170,7 @@ def create_pipeline() -> DataPipeline:
 
 
 def create_and_save_monomer_objects(m: MonomericObject, pipeline: DataPipeline,
-        flags_dict: dict,use_mmseqs2: bool =False) -> None:
+        cfg: dict,use_mmseqs2: bool =False) -> None:
     '''Create and save the passed MonomericObject object
 
     The function takes an empty monomer object and adds MSA and template
@@ -279,65 +201,65 @@ def create_and_save_monomer_objects(m: MonomericObject, pipeline: DataPipeline,
     -------
     None
     '''
-    if FLAGS.custom_template_path:
+    if cfg.db.custom_template_path:
         custom_path = os.path.basename(
-                        os.path.normpath(FLAGS.custom_template_path))
+                        os.path.normpath(cfg.db.custom_template_path))
         outfile = f'{m.description}_{custom_path}'
     else:
         outfile = f'{m.description}'
 
-    if FLAGS.skip_existing and check_existing_objects(FLAGS.output_dir, outfile) :
-        logging.info(f"Already found {outfile} in {FLAGS.output_dir} Skipped")
+    if cfg.skip_existing and check_existing_objects(cfg.output_dir, outfile) :
+        logging.info(f"Already found {outfile} in {cfg.output_dir} Skipped")
         #load old file and add all features of the old object in the passed one
-        monomer = load_monomer_objects({outfile: FLAGS.output_dir},
+        monomer = load_monomer_objects({outfile: cfg.output_dir},
                                          outfile)
         for attr, val in monomer.__dict__.items():
             m.__dict__[attr] = val
     else:
         timing = datetime.date(datetime.now())
         metadata_output_path = os.path.join(
-            FLAGS.output_dir,
+            cfg.output_dir,
             f"{m.description}_feature_metadata_{timing}.txt",
         )
-        with output_meta_file(metadata_output_path) as meta_data_outfile:
-            save_meta_data(flags_dict, meta_data_outfile)
+        #with output_meta_file(metadata_output_path) as meta_data_outfile:
+        #    save_meta_data(flags_dict, meta_data_outfile)
 
         if not use_mmseqs2:
             m.make_features(
                 pipeline,
-                output_dir=FLAGS.output_dir,
-                use_precomputed_msa=FLAGS.use_precomputed_msas,
-                save_msa=FLAGS.save_msa_files,
-                paired_msa=FLAGS.paired_msa
+                output_dir=cfg.output_dir,
+                use_precomputed_msa=cfg.use_precomputed_msas,
+                save_msa=cfg.save_msa_files,
+                paired_msa=cfg.paired_msa
             )
         else:
-            if FLAGS.custom_template_path:
-                templates_type = FLAGS.custom_template_path
-            elif FLAGS.use_mmseqs2_templates:
+            if cfg.db.custom_template_path:
+                templates_type = cfg.db.custom_template_path
+            elif cfg.run.use_mmseqs2_templates:
                 templates_type = 'mmseqs2'
             else:
                 templates_type = 'local'
             logging.info("running mmseqs2 now")
             m.make_features(
                 DEFAULT_API_SERVER=DEFAULT_API_SERVER,
-                output_dir=FLAGS.output_dir,
+                output_dir=cfg.output_dir,
                 templates_path=templates_type,
-                max_template_date=FLAGS.max_template_date,
-                pdb70_database_path=pdb70_database_path,
-                template_mmcif_dir=template_mmcif_dir,
+                max_template_date=cfg.max_template_date,
+                pdb70_database_path=cfg.db.pdb70_database_path,
+                template_mmcif_dir=cfg.db.template_mmcif_dir,
                 )
-        if FLAGS.custom_template_path:
+        if cfg.db.custom_template_path:
             m.description = f'{m.description}_{custom_path}'
-        output_file = os.path.join(FLAGS.output_dir, m.description)
+        output_file = os.path.join(cfg.output_dir, m.description)
         logging.info(f'Saving monomer object {output_file}')
-        if FLAGS.compress:
+        if cfg.compress:
             pickle.dump(m, bz2.BZ2File(f"{output_file}.pkl.bz2", "w"))
         else:
             pickle.dump(m, open(f"{output_file}.pkl", "wb"))
 
 
 def filter_and_save_monomer_object(monomer: MonomericObject, filters: dict,
-    pipeline: DataPipeline) -> None:
+    pipeline: DataPipeline, cfg) -> None:
     '''Modify templates used for AlphaFold calculations
 
     Modify an existing MonomericObject filtering the templates based on a 
@@ -373,8 +295,8 @@ def filter_and_save_monomer_object(monomer: MonomericObject, filters: dict,
                     f'{filter_file}')
         filter_name = Path(filter_file).stem
         file_name = f"{monomer.description}_{filter_name}"
-        if FLAGS.skip_existing and check_existing_objects(FLAGS.output_dir, file_name):
-            logging.info(f"{file_name} exists in {FLAGS.output_dir} Skipped")
+        if cfg.skip_existing and check_existing_objects(cfg.output_dir, file_name):
+            logging.info(f"{file_name} exists in {cfg.output_dir} Skipped")
             continue
         monomer.make_template_features(
             template_featuriser,
@@ -383,9 +305,9 @@ def filter_and_save_monomer_object(monomer: MonomericObject, filters: dict,
         )
         old_description = monomer.description
         monomer.description = f'{monomer.description}_{filter_name}'
-        output_file = os.path.join(FLAGS.output_dir, f'{monomer.description}')
+        output_file = os.path.join(cfg.output_dir, f'{monomer.description}')
         logging.info(f'Saving monomer object {output_file}')
-        if FLAGS.compress:
+        if cfg.compress:
             pickle.dump(monomer, bz2.BZ2File(f"{output_file}.pkl.bz2", "w"))
         else:
             pickle.dump(monomer, open(f"{output_file}.pkl", "wb"))
@@ -396,82 +318,83 @@ def filter_and_save_monomer_object(monomer: MonomericObject, filters: dict,
         monomer.description = old_description
 
 
-
-def main(argv):
+@hydra.main(version_base=None, config_path="conf/features", config_name="config")
+def main(cfg):
     try:
-        Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
-        setup_logging(os.path.join(FLAGS.output_dir,
-                                    f'{FLAGS.logger_file}.log'))
+        Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
+        setup_logging(os.path.join(cfg.output_dir,
+                                    f'{cfg.logger_file}.log'))
     except FileExistsError:
         logging.info("Multiple processes are trying to create" \
                     " the same folder now.")
 
-    flags_dict = FLAGS.flag_values_dict()
-    if FLAGS.data_dir is not None:
-        create_global_arguments(flags_dict)
-    elif FLAGS.use_mmseqs2 is False:
+    create_soft(cfg)
+
+    if cfg.db.data_dir is not None:
+        create_template_dbs(cfg)
+        if not cfg.run.use_mmseqs2_templates:
+            create_msa_dbs(cfg)
+
+    elif cfg.run.use_mmseqs2 is False:
         raise ValueError('No indication for genetic database, \
                                 please set a value for data_dir or \
                                 set use_mmseqs2 to True')
-    elif FLAGS.use_mmseqs2_templates is False:
+    elif cfg.run.use_mmseqs2_templates is False:
         raise ValueError('No indication for template database, \
                                 please set a value for data_dir or \
                                 set use_mmseqs2_templates to True')
         
 
-    if FLAGS.custom_template_path:
+    if cfg.db.custom_template_path:
         ff_appendix = ['_a3m.ffdata', 
                         '_a3m.ffindex', 
                         '_cs219.ffdata', 
                         '_cs219.ffindex']
-        ff_files = [os.path.join(FLAGS.custom_template_path,
+        ff_files = [os.path.join(cfg.db.custom_template_path,
                                     f'pdb70_{ff}') for ff in ff_appendix]
         for ff in ff_files:
-            if not os.path.isfile(os.path.join(FLAGS.custom_template_path, ff)):
-                mk_hhsearch_db(FLAGS.custom_template_path)
+            if not os.path.isfile(os.path.join(cfg.db.custom_template_path, ff)):
+                mk_hhsearch_db(cfg.db.custom_template_path)
                 break
 
-    if not FLAGS.use_mmseqs2:
-        if not FLAGS.max_template_date:
-            # The pipeline for the template requires a limit date, not 
-            # providing it closes the script.
-            logging.info("You have not provided a max_template_date." \
-                "Please specify a date and run again.")
-            sys.exit()
-        else:
-            pipeline = create_pipeline()
-            uniprot_database_path = os.path.join(FLAGS.data_dir,
-                "uniprot/uniprot.fasta")
-            flags_dict.update({"uniprot_database_path": uniprot_database_path})
-            if os.path.isfile(uniprot_database_path):
-                uniprot_runner = create_uniprot_runner(
-                    FLAGS.jackhmmer_binary_path, uniprot_database_path
-                )
-            else:
-                # Missing the uniprot.fasta file does not allow the script to 
-                # properly work
-                logging.info(
-                    f"Failed to find uniprot.fasta in {uniprot_database_path}."\
-                    " Please make sure data_dir has been configured correctly."
-                )
-                sys.exit()
-    else:
+    if not cfg.max_template_date and not cfg.run.use_mmseqs2_templates:
+        # The pipeline for the template requires a limit date, not 
+        # providing it closes the script.
+        logging.info("You have not provided a max_template_date." \
+            "Please specify a date and run again.")
+        sys.exit()
+    if cfg.run.use_mmseqs2:
         #mmseqs2 uses a specific pipeline created by a different function.
         #a serach function for uniprot is not required by using mmseqs2
         pipeline=None
         uniprot_runner=None
-        flags_dict=FLAGS.flag_values_dict()
+    else:
+        pipeline = create_pipeline(cfg)
+        cfg.db.uniprot_database_path = os.path.join(cfg.db.data_dir,
+            "uniprot/uniprot.fasta")
+        if os.path.isfile(cfg.db.uniprot_database_path):
+            uniprot_runner = create_uniprot_runner(
+                cfg.soft.jackhmmer_binary_path, uniprot_database_path
+            )
+        else:
+            # Missing the uniprot.fasta file does not allow the script to 
+            # properly work
+            logging.info(
+                f"Failed to find uniprot.fasta in {cfg.db.uniprot_database_path}."\
+                " Please make sure data_dir has been configured correctly."
+            )
+            sys.exit()
+        
+    filters = {qf: load_template_filter(qf) for qf in cfg.template_filters}
 
-    filters = {qf: load_template_filter(qf) for qf in FLAGS.template_filters}
-
-    seqs = iter_seqs(FLAGS.fasta_paths)
+    seqs = iter_seqs(cfg.fasta_paths)
     for seq_idx, (curr_seq, curr_desc) in enumerate(seqs, 1):
-        if FLAGS.seq_index != seq_idx and FLAGS.seq_index:
+        if cfg.seq_index != seq_idx and cfg.seq_index:
             continue
         elif curr_desc is None or curr_desc.isspace():
             continue
         else:
-            if FLAGS.use_mmseqs2:
+            if cfg.run.use_mmseqs2:
                 curr_monomer = MonomericObjectMmseqs2(curr_desc.replace(' ', '_'), curr_seq)
             else:
                 curr_monomer = MonomericObject(curr_desc.replace(' ', '_'), curr_seq)
@@ -479,15 +402,12 @@ def main(argv):
             
             create_and_save_monomer_objects(curr_monomer,
                                             pipeline,
-                                            flags_dict,
-                                            use_mmseqs2=FLAGS.use_mmseqs2)
-            filter_and_save_monomer_object(curr_monomer, filters, pipeline)
+                                            cfg,
+                                            use_mmseqs2=cfg.run.use_mmseqs2)
+            filter_and_save_monomer_object(curr_monomer, filters, pipeline, cfg)
 
             del curr_monomer
 
 
 if __name__ == "__main__":
-    flags.mark_flags_as_required(
-        ["fasta_paths", "output_dir","max_template_date"]
-    )
-    app.run(main)
+    main()

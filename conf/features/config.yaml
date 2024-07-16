@@ -1,0 +1,40 @@
+hydra:
+  run:
+    dir: feautre_outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+defaults:
+  - run: local
+  - _self_
+  
+db:
+  data_dir: /alpha/alphafold_data
+  uniref30_database_path: null
+  uniref90_database_path: null
+  mgnify_database_path: null
+  bfd_database_path: null
+  small_bfd_database_path: null
+  pdb_seqres_database_path: null
+  template_mmcif_dir: null
+  obsolete_pdbs_path: null
+  pdb70_database_path: null
+  custom_template_path: null
+
+soft:
+  jackhmmer_binary_path: jackhmmer
+  hhblits_binary_path: hhblits
+  hhsearch_binary_path: hhsearch
+  hmmsearch_binary_path: hmmsearch
+  hmmbuild_binary_path: hmmbuild
+  kalign_binary_path: kalign
+
+save_msa_file: True
+skip_existing: True
+seq_index: null
+template_filters: []
+logger_file: feature_generation
+compress: True
+fasta_paths: ???
+output_dir: Protein_features
+use_precomputed_msa: True
+max_template_hits: 20
+max_template_date: 2050-01-01

@@ -1,0 +1,4 @@
+use_mmseqs2: False
+use_mmseqs2_templates: False
+paired_msa: True
+db_preset: full_dbs
