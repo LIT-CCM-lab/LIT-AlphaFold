@@ -1,0 +1,10 @@
+num_cycle_mono: 5
+num_cycle_extra: 20
+max_seq: null
+max_extra_seq: null
+num_predictions_per_model: 1
+dropout: False
+cluster_profile: True
+only_template: False
+use_templates: True
+remove_template_msa: False

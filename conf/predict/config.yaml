@@ -1,0 +1,34 @@
+hydra:
+  run:
+    dir: prediction_outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+defaults:
+  - run: default
+  - _self_
+
+weights:
+  data_dir: ???
+  multimer_type: v3
+  monomer_type: _ptm
+
+
+mode: custom
+output_path: Protein_structures
+monomer_objects_dir: ???
+input_file: ???
+save_multimers: False
+compress_multimers: False
+benchmark: False
+logger_file: alphafold_prediction
+
+save_all: False
+models_to_relax: null #'best', 'all'
+allow_resume: True
+remove_pair_msa: False
+remove_unpaired_msa: False
+shuffle_templates: False
+
+mutate_msa_file: null
+remove_msa_region: null
+modify_unpaired_msa: True
+modify_paired_msa: False

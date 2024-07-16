@@ -21,6 +21,7 @@ except:
 import yaml
 import hydra
 import shutil
+from omegaconf import OmegaConf
 
 from alphafold.data.tools import hmmsearch, hhsearch
 from alphafold.data import templates
@@ -320,6 +321,11 @@ def filter_and_save_monomer_object(monomer: MonomericObject, filters: dict,
 
 @hydra.main(version_base=None, config_path="conf/features", config_name="config")
 def main(cfg):
+
+    missing_keys: set[str] = OmegaConf.missing_keys(cfg)
+    if missing_keys:
+        raise RuntimeError(f"Got missing keys in config: {'  '.join(missing_keys)}")
+
     try:
         Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
         setup_logging(os.path.join(cfg.output_dir,

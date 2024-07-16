@@ -7,7 +7,7 @@ defaults:
   - _self_
   
 db:
-  data_dir: /alpha/alphafold_data
+  data_dir: ???
   uniref30_database_path: null
   uniref90_database_path: null
   mgnify_database_path: null
