@@ -285,6 +285,7 @@ class MonomericObject:
             new_feature_dict = self.feature_dict.copy()
             return new_feature_dict.update(dict(templates_result.features))
 
+
     def make_features(
         self,
         pipeline : DataPipeline,
@@ -389,7 +390,6 @@ class MonomericObject:
                     )
                     self.feature_dict.update(pairing_results)
 
-    
 
     def remove_template_from_msa(self, inplace = False):
         '''Remove monomer MSA data from template aligned regions
@@ -419,6 +419,7 @@ class MonomericObject:
         
         return new_feature_dict
 
+
     def remove_msa_features(self, inplace = False):
         '''Remove monomer MSA
 
@@ -436,6 +437,7 @@ class MonomericObject:
         new_msa_feature = make_msa_features([a3m_lines])
         
         return new_feature_dict.update(new_msa_feature)
+
 
     def mutate_msa(self, pos_res, inplace = False, paired=False, unpaired=True):
         '''Mutate specific postions of the monomer MSA
@@ -455,12 +457,7 @@ class MonomericObject:
             self.description = rename_mutate_msa(self.description, pos_res, paired, unpaired) 
         else:
             new_feature_dict = self.feature_dict.copy()
-
-
-        logging.info('By using the tool "MSA point mutation" please cite:\n\
-                STEIN, Richard A.; MCHAOURAB, Hassane S.\n\
-                SPEACH_AF: Sampling protein ensembles and conformational heterogeneity with Alphafold2.\n\
-                PLOS Computational Biology, 2022, 18.8: e1010483. doi:10.1371/journal.pcbi.1010483')
+        
         mutated_msa = self.feature_dict['msa'].copy()
         mutated_pmsa = self.feature_dict['msa_all_seq'].copy()
         
@@ -477,6 +474,24 @@ class MonomericObject:
         new_feature_dict['msa_all_seq'] = mutated_pmsa
         return new_feature_dict
 
+    def alanine_scanning(self, regions, inplace = False, paired=False, unpaired=True, window = 11):
+        logging.info('By using the tool "Alanine scanning" please cite:\n\
+                STEIN, Richard A.; MCHAOURAB, Hassane S.\n\
+                SPEACH_AF: Sampling protein ensembles and conformational heterogeneity with Alphafold2.\n\
+                PLOS Computational Biology, 2022, 18.8: e1010483. doi:10.1371/journal.pcbi.1010483')
+        mutants = {}
+        for idx_1, idx_2 in regions:
+            for i in range(idx_1, idx_2, window):
+                end = min(i+window, idx_2)
+                mutations = {i: 'A' for i in range(i, end+1)}
+                mutants[(i, end)] = self.mutate_msa(mutations,
+                                                        inplace=True,
+                                                        paired=paired,
+                                                        unpaired=unpaired)
+
+        return mutants
+
+
     def remove_templates(self, inplace = False):
         '''Remove template features
         '''
@@ -489,6 +504,7 @@ class MonomericObject:
         new_feature_dict = mk_mock_template(new_feature_dict)
         
         return new_feature_dict
+
 
     def remove_msa_region(self, regions, inplace = False, paired=False, unpaired=True):
         '''Remove a user specified region of the monomer MSA
@@ -853,14 +869,7 @@ class ChoppedObject(MonomericObject):
         self.regions = regions
         self.new_sequence = ""
         self.new_feature_dict = dict()
-        self.description = description
-        self.prepare_new_self_description()
-
-    def prepare_new_self_description(self):
-        """prepare self_description of chopped proteins"""
-        self.description += '_chopped'
-        for r in self.regions:
-            self.description += f"_{r[0]}-{r[1]}"
+        self.description = rename_chopped(description, regions)
 
     def prepare_new_msa_feature(
         self,

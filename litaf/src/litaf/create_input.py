@@ -16,10 +16,7 @@ import copy
 import logging
 import yaml
 
-from litaf.utils import (read_custom,
-                        read_all_proteins,
-                        obtain_options,
-                        make_dir_monomer_dictionary)
+from litaf.utils import make_dir_monomer_dictionary
 
 from litaf.objects import MultimericObject, ChoppedObject, load_monomer_objects
 from litaf.rename import *
@@ -140,9 +137,11 @@ def create_interactors(entries,
     for i,interactors in enumerate(interactors_list):
         interactors_obj.append([])
         for interactor, e in zip(interactors, entries[i]):
-            interactors_obj[-1].append(copy.deepcopy(all_monomers[interactor]))
-            if e.get('monomer'):
-                interactors_obj[-1][-1].description = e.get('monomer')
+            for i in range(e.get('n_units', 1)):
+                interactors_obj[-1].append(copy.deepcopy(all_monomers[interactor]))
+                if e.get('monomer'):
+                    interactors_obj[-1][-1].description = e.get('monomer')
+
 
     return interactors_obj
 
@@ -153,18 +152,9 @@ def read_yaml(file):
         data = f.read()
     return [y for y in yaml.load_all(data, Loader=yaml.Loader)]
 
-def read_homomer(file):
-    yaml_data = read_yaml(file)
-    monomers = []
-    for homo in yaml_data:
-        if isinstance(homo['monomer'], str):
-            homo['monomer'] = {'protein_name': homo['monomer']}
-
-    return [[y] for y in yaml_data]
-
 def read_proteins(file):
     yaml_data = read_yaml(file)
-    return [[{'protein': y}] if isinstance(y, str) else [y] for y in yaml_data]
+    return [[{'protein_name': y}] if isinstance(y, str) else [y] for y in yaml_data]
 
 def read_custom(file):
     yaml_data = read_yaml(file)
@@ -183,20 +173,24 @@ def load_monomers(entries, monomer_dir_dict):
         structure_list.append([])
         for e in entry:
             e_name = get_interactor_name(e)
-            if e_name not in interactors:
-                logging.info(f"Processing {e['protein_name']}")
-                monomer = load_monomer_objects(monomer_dir_dict, e['protein_name'])
-                if not isinstance(monomer, MultimericObject):
-                    monomer = modify_monomer(e, monomer)
-                interactors[e_name] = monomer
-
             structure_list[-1].append(e_name)
+            if e_name in interactors:
+                continue
+            logging.info(f"Processing {e['protein_name']}")
+            monomer = load_monomer_objects(monomer_dir_dict, e['protein_name'])
+            if not isinstance(monomer, MultimericObject):
+                monomer = modify_monomer(e, monomer)
+            interactors[e_name] = monomer
+
+            
 
     return interactors, structure_list
 
 
 def get_interactor_name(interactor):
     name = interactor['protein_name']
+    if interactor.get('selected_residues'):
+        name = rename_chopped(name, interactor.get('selected_residues'))
     if interactor.get('remove_msa_region'):
         name = rename_remove_msa_region(name,
                                         interactor.get('remove_msa_region'),
@@ -504,31 +498,33 @@ def create_homooligomers(
     MultimericObject and MonomericObject for prediction: list
     """
     multimers = []
-    data = read_homomer(oligomer_state_file)
 
-    interactors = create_interactors(data,
-                                monomer_objects_dir,
-                                remove_msa=remove_msa,
-                                remove_template_msa=remove_template_msa,
-                                remove_templates = remove_templates,
-                                mutate_msa = mutate_msa,
-                                remove_msa_region = remove_msa_region,
-                                shuffle_templates=shuffle_templates,
-                                unpaired_msa=unpaired_msa,
-                                paired_msa=paired_msa)[0]
+    data = []
+    for file in oligomer_state_file:
+        data= data + read_yaml(file)
 
-    for interactors, d in zip(interactors, data):
-        if d['n_units'] > 1:
-            interactors = [monomer] * d['n_units']
-            homooligomer = MultimericObject(interactors,pair_msa=pair_msa)
-            homooligomer.description = f"{monomer.description}_homo_{num_units}er"
-            multimers.append(homooligomer)
-            logging.info(
-                f"finished creating homooligomer {homooligomer.description}"
-            )
-        elif num_units == 1:
-            multimers.append(monomer)
-            logging.info(f"finished loading monomer: {monomer.description}")
+    interactors_list = create_interactors(
+        data,
+        monomer_objects_dir,
+        remove_msa=remove_msa,
+        remove_template_msa=remove_template_msa,
+        remove_templates = remove_templates,
+        mutate_msa = mutate_msa,
+        remove_msa_region = remove_msa_region,
+        shuffle_templates=shuffle_templates,
+        unpaired_msa=unpaired_msa,
+        paired_msa=paired_msa)
+    for interactors in interactors_list:
+        if len(interactors) > 1:
+            multimer = MultimericObject(
+                interactors=interactors,
+                pair_msa=False)
+            multimer.description = f"{interactors[0].description}_homo_{len(interactors)}er"
+            logging.info(f"done creating multimer {multimer.description}")
+            multimers.append(multimer)
+        else:
+            logging.info(f"done loading monomer {interactors[0].description}")
+            multimers.append(interactors[0])
 
     return multimers
 

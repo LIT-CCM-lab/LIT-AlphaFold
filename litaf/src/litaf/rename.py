@@ -21,3 +21,8 @@ def rename_remove_templates(name):
 
 def rename_shuffle_templates(name, seed):
     return name+f'_shuffled_templates_{seed}'
+
+def rename_chopped(name, regions):
+    for r in regions:
+        name += f'_{r[0]}-{r[1]}'
+    return name
