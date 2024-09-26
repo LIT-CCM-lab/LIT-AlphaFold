@@ -674,6 +674,25 @@ class MonomericObject:
 
         return filter_template_features(new_feature_dict, query)
 
+    def filter_msa_rows(self, mask, inplace = False):
+        if len(mask) != self.feature_dict['msa'].shape[0]:
+            raise ValueError(f"The mask and the MSA need to have the same dimension.\n\
+                MSA lines {self.feature_dict['msa'].shape[0]}\n\
+                mask values {len(mask)}")
+        if inplace:
+            new_feature_dict = self.feature_dict
+            self.description += f'_{query_name}'
+        else:
+            new_feature_dict = self.feature_dict.copy()
+
+        new_feature_dict.update({'msa': np.concatenate([[self.feature_dict['msa'][0]],
+                                        self.feature_dict['msa'][1:][mask[1:]]]),
+                                'deletion_matrix_int': np.concatenate([[self.feature_dict['deletion_matrix_int'][0]],
+                                                       self.feature_dict['deletion_matrix_int'][1:][mask[1:]]]),
+                                'num_alignments': np.array([np.nonzero(np.array(mask)) for _ in self.feature_dict['num_alignments']])})
+
+        return new_feature_dict
+
 
 class MonomericObjectMmseqs2(MonomericObject):
     def __init__(self, description, sequence) -> None:

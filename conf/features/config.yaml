@@ -18,6 +18,7 @@ db:
   obsolete_pdbs_path: null
   pdb70_database_path: null
   custom_template_path: null
+  use_small_bfd: False
 
 soft:
   jackhmmer_binary_path: jackhmmer
@@ -27,7 +28,7 @@ soft:
   hmmbuild_binary_path: hmmbuild
   kalign_binary_path: kalign
 
-save_msa_file: True
+save_msa_files: True
 skip_existing: True
 seq_index: null
 template_filters: []
@@ -38,3 +39,4 @@ output_dir: Protein_features
 use_precomputed_msa: True
 max_template_hits: 20
 max_template_date: 2050-01-01
+paired_msa: True

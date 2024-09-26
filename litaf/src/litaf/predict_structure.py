@@ -28,6 +28,10 @@ from alphafold.common import residue_constants
 from alphafold.relax import relax
 from alphafold import run_alphafold as run_af
 
+#import jax
+#import jax.numpy as jnp
+#import optax
+
 RELAX_MAX_ITERATIONS = run_af.RELAX_MAX_ITERATIONS
 RELAX_ENERGY_TOLERANCE = run_af.RELAX_ENERGY_TOLERANCE
 RELAX_STIFFNESS = run_af.RELAX_STIFFNESS
@@ -164,8 +168,8 @@ def predict(
     None
     '''
     timings = {}
-    unrelaxed_pdbs = {}
     relaxed_pdbs = {}
+    unrelaxed_pdbs = {}
     relax_metrics = {}
     ranking_confidences = {}
     unrelaxed_proteins = {}
@@ -218,46 +222,27 @@ def predict(
               if x in result:
                 print_line += f" {y}={result.get(x):.3g}"
             logging.info(f"{model_name} recycle={recycles}{print_line}")
-
             if save_recycles:
-                final_atom_mask = result["structure_module"]["final_atom_mask"]
-                b_factors = result["plddt"][:, None] * final_atom_mask
-                unrelaxed_protein = protein.from_prediction(
-                    features=processed_feature_dict,
-                    result=result,
-                    b_factors=b_factors,
-                    remove_leading_feature_dimension=(
-                            len(seqs) == 1)
-                    )
-                os.path.join(output_dir, f"unrelaxed_{model_name}_r{recycles}.pdb").write_text(
-                                protein.to_pdb(unrelaxed_protein)
-                                )
-
-            
-                if save_all:
-                    tmp_output_path = os.path.join(output_dir, f"unrelaxed_{model_name}_r{recycles}.pkl")
-                    if compress_results:
-                        out_file = bz2.BZ2File(tmp_output_path+'.bz2','w')
-                    else:
-                        out_file = open(tmp_output_path, 'wb')
-                    pickle.dump(result, out_file)
-                del unrelaxed_protein
+                write_prediction_output(output_dir, result, processed_feature_dict,
+                                        model_name+f'_recycle_{recycles}', compress_results,
+                                        (len(seqs) == 1), save_all = save_all)
 
         return_representations = save_all or \
                                 save_single_representations or \
                                 save_pair_representations
 
         t_0 = time.time()
-        prediction_result, _ = model_runner.predict(
-            processed_feature_dict, random_seed=model_random_seed,
-            return_representations=return_representations,
-            callback=callback
-        )
+        unrelaxed_protein,ranking_confidence,ranking_confidence_score_type = run_prediction(model_runner, model_name,
+                                                                                processed_feature_dict,
+                                                                                model_random_seed,
+                                                                                return_representations,
+                                                                                callback,
+                                                                                seqs, output_dir,
+                                                                                compress_results,
+                                                                                (len(seqs) == 1))
 
-        ranking_confidence_score_type = "iptm+ptm" if "iptm" in prediction_result else "plddts"
-
-        # update prediction_result with input seqs
-        prediction_result.update({"seqs": seqs})
+        unrelaxed_proteins.update(unrelaxed_protein)
+        ranking_confidences.update(ranking_confidence)
 
         t_diff = time.time() - t_0
         timings[f"predict_and_compile_{model_name}"] = t_diff
@@ -278,39 +263,12 @@ def predict(
                 f"(excludes compilation time):  {t_diff:.1f} s"
             )
 
-        plddt = prediction_result["plddt"]
-        ranking_confidences[model_name] = prediction_result["ranking_confidence"].tolist()
-
-        result_output_path = os.path.join(output_dir,
-                                        f"result_{model_name}.pkl")
-
-        
-        if compress_results:
-            out_file = bz2.BZ2File(result_output_path+'.bz2','w')
-        else:
-            out_file = open(result_output_path, 'wb')
-        pickle.dump(prediction_result, out_file)
-
-        plddt_b_factors = np.repeat(
-            plddt[:, None], residue_constants.atom_type_num, axis=-1
-        )
-        unrelaxed_protein = protein.from_prediction(
-            features=processed_feature_dict,
-            result=prediction_result,
-            b_factors=plddt_b_factors,
-            remove_leading_feature_dimension=not model_runner.multimer_mode,
-        )
-
-        unrelaxed_proteins[model_name] = unrelaxed_protein
-        unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
-        unrelaxed_pdb_path = os.path.join(output_dir,
-                                        f"unrelaxed_{model_name}.pdb")
-        with open(unrelaxed_pdb_path, "w") as f:
-            f.write(unrelaxed_pdbs[model_name])
-
         with open(temp_timings_output_path, "w") as f:
             f.write(json.dumps(timings, indent=4))
 
+
+    if len(unrelaxed_pdbs) == 0:
+        unrelaxed_pdbs = {name: protein.to_pdb(prot) for name, prot in unrelaxed_proteins.items()}
 
     # Rank by model confidence.
     ranked_order = [
@@ -391,3 +349,105 @@ def predict(
             os.remove(temp_timings_output_path)
         except OSError:
             pass
+
+
+def run_prediction(model_runner, model_name,
+                    processed_feature_dict, model_random_seed,
+                    return_representations, callback, seqs, output_dir,
+                    compress_results, remove_leading_feature_dimension):
+
+    prediction_result, _ = model_runner.predict(
+            processed_feature_dict, random_seed=model_random_seed,
+            return_representations=return_representations,
+            callback=callback
+        )
+        # update prediction_result with input seqs
+    prediction_result.update({"seqs": seqs})
+
+    unrelaxed_protein = write_prediction_output(output_dir, prediction_result, processed_feature_dict,
+                            model_name, compress_results, not model_runner.multimer_mode, True)
+
+    ranking_confidence_score_type = "iptm+ptm" if "iptm" in prediction_result else "plddts"
+
+    return {model_name: unrelaxed_protein}, {model_name: prediction_result["ranking_confidence"].tolist()}, ranking_confidence_score_type
+
+'''
+def run_optimization(model_runner, model_name, max_iter, msa_params,
+                    processed_feature_dict, model_random_seed,
+                    return_representations, callback, seqs, output_dir,
+                    compress_results, remove_leading_feature_dimension, learning_rate):
+
+    msa_shape = processed_feature_dict['msa'].shape
+    processed_feature_dict['msa_shape'] = msa_shape
+    msa_params = jnp.zeros((config.model.embeddings_and_evoformer.num_msa, msa_shape[1], 23), dtype='float32') #23 classes for aa, gap, mask
+    optimizer = optax.adam(learning_rate)
+    opt_state = optimizer.init(msa_params)
+
+    def loss_fn(msa_params, processed_features_dict):
+        prediction_result, _ = model_runner.predict(
+            processed_feature_dict, random_seed=model_random_seed,
+            return_representations=return_representations,
+            callback=callback
+        )
+        return 1/prediction_result["ranking_confidence"], prediction_result
+
+    def update(msa_params, opt_state, processed_feature_dict):
+        (loss, aux), grads = jax.value_and_grad(loss_fn, has_aux=True)(msa_params, processed_feature_dict)
+        updates, new_opt_state = optimizer.update(grads, opt_state)
+        new_params = optax.apply_updates(msa_params, updates)
+        return loss, aux, new_params, new_opt_state
+
+    unrelaxed_proteins = {}
+    ranking_confidences = {}
+
+    for i in range(max_iter):
+        if (np.array(metrics['ranking_confidence'])>confidence_threshold).sum()>=num_above_t:
+            logging.info('Confidence threshold reached.')
+            return unrelaxed_proteins
+
+        loss, aux, msa_params, opt_state = update(msa_params, opt_state, processed_feature_dict)
+        unrelaxed_proteins[model_name+f'_opt_{i}'] = write_prediction_output(output_dir,
+                                                                            aux,
+                                                                            processed_feature_dict
+                                                                            model_name+f'_opt_{i}',
+                                                                            compress_results,
+                                                                            remove_leading_feature_dimension)
+        ranking_confidence_score_type = "iptm+ptm" if "iptm" in aux else "plddts"
+
+
+        ranking_confidences[model_name+f'_opt_{i}'] = {model_name: aux["ranking_confidence"].tolist()}
+
+    return unrelaxed_proteins, ranking_confidences, ranking_confidence_score_type
+'''
+
+def write_prediction_output(output_dir, prediction_result, processed_feature_dict,
+                            model_name, compress_results,
+                            remove_leading_feature_dimension, save_all = False):
+
+
+    result_output_path = os.path.join(output_dir,
+                                    f"result_{model_name}.pkl")
+
+    plddt_b_factors = np.repeat(
+        prediction_result["plddt"][:, None], residue_constants.atom_type_num, axis=-1
+    )
+    unrelaxed_protein = protein.from_prediction(
+        features=processed_feature_dict,
+        result=prediction_result,
+        b_factors=plddt_b_factors,
+        remove_leading_feature_dimension=remove_leading_feature_dimension,
+    )
+
+    unrelaxed_pdb_path = os.path.join(output_dir,
+                                    f"unrelaxed_{model_name}.pdb")
+    with open(unrelaxed_pdb_path, "w") as f:
+        f.write(protein.to_pdb(unrelaxed_protein))
+
+    if save_all:
+        if compress_results:
+            out_file = bz2.BZ2File(result_output_path+'.bz2','w')
+        else:
+            out_file = open(result_output_path, 'wb')
+        pickle.dump(prediction_result, out_file)
+
+    return unrelaxed_protein

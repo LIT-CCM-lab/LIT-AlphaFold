@@ -147,7 +147,7 @@ def create_pipeline(cfg) -> DataPipeline:
                                 database_path=cfg.db.pdb_seqres_database_path,
                             )
         template_featurizer=templates.HmmsearchHitFeaturizer(
-                                mmcif_dir=template_mmcif_dir,
+                                mmcif_dir=cfg.db.template_mmcif_dir,
                                 max_template_date=cfg.max_template_date,
                                 max_hits=cfg.max_template_hits,
                                 kalign_binary_path=cfg.soft.kalign_binary_path,
@@ -163,7 +163,7 @@ def create_pipeline(cfg) -> DataPipeline:
                                 uniref30_database_path=cfg.db.uniref30_database_path,
                                 small_bfd_database_path=cfg.db.small_bfd_database_path,
                                 use_small_bfd=cfg.db.use_small_bfd,
-                                use_precomputed_msas=cfg.use_precomputed_msas,
+                                use_precomputed_msas=cfg.use_precomputed_msa,
                                 template_searcher=template_searcher,
                                 template_featurizer=template_featurizer,
                                 )
@@ -229,7 +229,7 @@ def create_and_save_monomer_objects(m: MonomericObject, pipeline: DataPipeline,
             m.make_features(
                 pipeline,
                 output_dir=cfg.output_dir,
-                use_precomputed_msa=cfg.use_precomputed_msas,
+                use_precomputed_msa=cfg.use_precomputed_msa,
                 save_msa=cfg.save_msa_files,
                 paired_msa=cfg.paired_msa
             )
@@ -376,9 +376,9 @@ def main(cfg):
         uniprot_runner=None
     else:
         pipeline = create_pipeline(cfg)
-        cfg.db.uniprot_database_path = os.path.join(cfg.db.data_dir,
+        uniprot_database_path = os.path.join(cfg.db.data_dir,
             "uniprot/uniprot.fasta")
-        if os.path.isfile(cfg.db.uniprot_database_path):
+        if os.path.isfile(uniprot_database_path):
             uniprot_runner = create_uniprot_runner(
                 cfg.soft.jackhmmer_binary_path, uniprot_database_path
             )
@@ -386,7 +386,7 @@ def main(cfg):
             # Missing the uniprot.fasta file does not allow the script to 
             # properly work
             logging.info(
-                f"Failed to find uniprot.fasta in {cfg.db.uniprot_database_path}."\
+                f"Failed to find uniprot.fasta in {uniprot_database_path}."\
                 " Please make sure data_dir has been configured correctly."
             )
             sys.exit()

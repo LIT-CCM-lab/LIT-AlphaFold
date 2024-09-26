@@ -94,6 +94,7 @@ class DataPipeline:
                uniref_max_hits: int = 10000,
                use_precomputed_msas: bool = False,
                use_templates: bool = True):
+  
     """Initializes the data pipeline."""
     self._use_small_bfd = use_small_bfd
     self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(

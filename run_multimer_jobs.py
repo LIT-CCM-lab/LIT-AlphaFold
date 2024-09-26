@@ -119,7 +119,7 @@ def predict_multimers(
         logging.info("Run preddiction without cluster profiling")
         run_description = run_description+'_noclusterprofile'
     if cfg.run.max_seq is not None and cfg.run.max_extra_seq is not None:
-        run_description = run_description+f'_MSA-subsampling-{cfg.run.max_seq}:{cfg.run.max_extra_seq}'
+        run_description = run_description+f'_MSA-subsampling-{cfg.run.max_seq}-{cfg.run.max_extra_seq}'
     for obj in multimers:
         obj.description = obj.description+run_description
         if isinstance(obj, MultimericObject):

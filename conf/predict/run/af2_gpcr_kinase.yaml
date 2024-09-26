@@ -6,4 +6,4 @@ dropout: False
 cluster_profile: True
 only_template: True
 use_templates: True
-remove_template_msa: True
+remove_template_msa: False

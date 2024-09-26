@@ -10,6 +10,7 @@ Functions for template filtering
 '''
 import logging
 from datetime import datetime as dt
+from math import nan
 
 import requests
 import yaml
@@ -193,6 +194,16 @@ def query_rcsb(pdbid_chains, query, *args):
                             query,
                             rj,
                             compare_rcsb_entry)
+
+def query_channelsdb(pdbid_chains, query, *args):
+    logging.info("Downloading ChannelsDB 2.0, please cite DOI: 10.1093/nar/gkad1012")
+    rj = {}
+    for p in pdbid_chains:
+        url = f"https://channelsdb2.biodata.ceitec.cz/api/channels/pdb/{p.split('_')[0]}"
+        r = request.get(url)
+        rj[p] = r.json()
+
+    return query_database(pdbid_chains, query, rj, compare_channelsdb_entry)
 
 
 def query_database(pdbid_chains, query, all_entries, function):
@@ -387,6 +398,37 @@ def compare_gpcrdb_g_entry(pdbid, chainid, query, entry):
             if entry[key] not in item:
                 return False
     return True
+
+def compare_channelsdb_entry(pdbid, chainid, query, entry):
+    #future implementation should offer the possibility to look at the channel profile, but now I do not have time to do it
+    flag = False
+    #if the structure is missing annotated channels it is discarded
+    if entry.get("details"):
+        logging.info(f"PDBID: {pdbid} not in ChannelsDB 2.0")
+    for c_key, channels in entry["Channels"].items():
+        query_key = c_key.split('_')[0]
+        if query_key not in query or len(channels) == 0:
+            continue
+        flag = True
+        for channel in channels:
+            if 'Type' in query[query_key]:
+                if channel['Type'] not in query[query_key]['Type']:
+                    continue
+            for key, item in query[query_key].items():
+                if key == 'Type':
+                    continue
+                if key.startswith('min_'):
+                    if channel['Properties'].get(key, nan) < item:
+                        return False
+                elif key.startswith('max_'):
+                    if channel['Properties'].get(key, nan) > item:
+                        return False
+                else:
+                    if channel['Properties'].get(key, nan) != item:
+                        return False
+
+    return flag
+
 
 
 def load_template_filter(file):
