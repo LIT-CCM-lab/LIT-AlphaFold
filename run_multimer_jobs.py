@@ -141,6 +141,7 @@ def predict_multimers(
                             cfg.run.dropout,
                             cfg.run.cluster_profile,
                             cfg.save_all)
+
         random_seed = random.randrange(sys.maxsize // len(model_runners))
 
         for obj in t_multi:
