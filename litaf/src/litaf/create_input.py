@@ -120,10 +120,15 @@ def create_interactors(entries,
     ------
     Monomers prepared for prediction and processing: list of MonomericObject
     """
-    interactors_obj = []
+    scores = []
+    all_monomers = {}
+    interactors_list = []
     monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
     for entry in entries:
+        total = 0
+        interactors_list.append()
         for e in entry:
+            total += e.get('n_units', 1)
             e['remove_msa'] = e.get('remove_msa', remove_msa)
             e['remove_msa_templates'] =  e.get('remove_msa_templates', remove_template_msa)
             e['remove_templates'] =  e.get('remove_templates', remove_templates)
@@ -132,7 +137,24 @@ def create_interactors(entries,
             e['shuffle_templates'] = e.get('shuffle_templates', shuffle_templates)
             e['paired'] =  e.get('paired', paired_msa)
             e['unpaired'] =  e.get('unpaired', unpaired_msa)
+            #from here is all copied from the old load_monomer function
+            e_name = get_interactor_name(e)
+            interactors_list[-1].append(e_name)
+            if e_name in all_monomers:
+                continue
+            logging.info(f"Processing {e['protein_name']}")
+            monomer = load_monomer_objects(monomer_dir_dict, e['protein_name'])
+            if not isinstance(monomer, MultimericObject):
+                monomer = modify_monomer(e, monomer)
+            else:
+                total += 1 # to count a multimer object as a real multimer and not a monomer
+            all_monomers[e_name] = monomer 
+        scores.append(total)
 
+    #all_monomers, interactors_list = load_monomers(entries, monomer_dir_dict)
+    idxs = sorted(range(len(scores)), key=scores.__getitem__)
+
+    '''
     all_monomers, interactors_list = load_monomers(entries, monomer_dir_dict)
     for i,interactors in enumerate(interactors_list):
         interactors_obj.append([])
@@ -141,10 +163,10 @@ def create_interactors(entries,
                 interactors_obj[-1].append(copy.deepcopy(all_monomers[interactor]))
                 if e.get('monomer'):
                     interactors_obj[-1][-1].description = e.get('monomer')
+    '''
 
 
-    return interactors_obj
-
+    return all_monomers, [interactors_list[i] for i in idxs]
 
 
 def read_yaml(file):
@@ -180,9 +202,7 @@ def load_monomers(entries, monomer_dir_dict):
             monomer = load_monomer_objects(monomer_dir_dict, e['protein_name'])
             if not isinstance(monomer, MultimericObject):
                 monomer = modify_monomer(e, monomer)
-            interactors[e_name] = monomer
-
-            
+            interactors[e_name] = monomer     
 
     return interactors, structure_list
 
@@ -306,29 +326,45 @@ def create_multimer_objects(
 
     multimers = []
 
-    interactors_list = create_interactors(
-        data,
-        monomer_objects_dir,
-        remove_msa=remove_msa,
-        remove_template_msa=remove_template_msa,
-        remove_templates = remove_templates,
-        mutate_msa = mutate_msa,
-        remove_msa_region = remove_msa_region,
-        shuffle_templates=shuffle_templates,
-        unpaired_msa=unpaired_msa,
-        paired_msa=paired_msa)
-    for interactors in interactors_list:
-        if len(interactors) > 1:
+    all_monomers, interactors_list = create_interactors(
+                                                        data,
+                                                        monomer_objects_dir,
+                                                        remove_msa=remove_msa,
+                                                        remove_template_msa=remove_template_msa,
+                                                        remove_templates = remove_templates,
+                                                        mutate_msa = mutate_msa,
+                                                        remove_msa_region = remove_msa_region,
+                                                        shuffle_templates=shuffle_templates,
+                                                        unpaired_msa=unpaired_msa,
+                                                        paired_msa=paired_msa)
+    '''
+    all_monomers, interactors_list = load_monomers(entries, monomer_dir_dict)
+    for i,interactors in enumerate(interactors_list):
+        interactors_obj.append([])
+        for interactor, e in zip(interactors, entries[i]):
+            for i in range(e.get('n_units', 1)):
+                interactors_obj[-1].append()
+                if e.get('monomer'):
+                    interactors_obj[-1][-1].description = e.get('monomer')
+    '''
+
+    for interactors, entry in zip(interactors_list, data):
+        out = []
+        for interactor, e in zip(interactors, entry):
+            for i in range(e.get('n_units', 1)):
+                out.append(copy.deepcopy(all_monomers[interactor]))
+                if e.get('monomer'):
+                    out[-1].description = e.get('monomer')
+        if len(out) > 1:
             multimer = MultimericObject(
-                interactors=interactors,
+                interactors=out,
                 pair_msa=pair_msa)
             logging.info(f"done creating multimer {multimer.description}")
-            multimers.append(multimer)
+            yield multimer
+
         else:
             logging.info(f"done loading monomer {interactors[0].description}")
-            multimers.append(interactors[0])
-
-    return multimers
+            yield out[0]
 
 
 def create_pulldown(
@@ -503,7 +539,7 @@ def create_homooligomers(
     for file in oligomer_state_file:
         data= data + read_yaml(file)
 
-    interactors_list = create_interactors(
+    all_monomers, interactors_list = create_interactors(
         data,
         monomer_objects_dir,
         remove_msa=remove_msa,
@@ -514,19 +550,24 @@ def create_homooligomers(
         shuffle_templates=shuffle_templates,
         unpaired_msa=unpaired_msa,
         paired_msa=paired_msa)
-    for interactors in interactors_list:
-        if len(interactors) > 1:
+
+    for interactors, entry in zip(interactors_list, data):
+        out = []
+        for interactor, e in zip(interactors, entry):
+            for i in range(e.get('n_units', 1)):
+                out.append(copy.deepcopy(all_monomers[interactor]))
+                if e.get('monomer'):
+                    out[-1].description = e.get('monomer')
+        if len(out) > 1:
             multimer = MultimericObject(
-                interactors=interactors,
+                interactors=out,
                 pair_msa=False)
-            multimer.description = f"{interactors[0].description}_homo_{len(interactors)}er"
+            multimer.description = f"{out[0].description}_homo_{len(interactors)}er"
             logging.info(f"done creating multimer {multimer.description}")
-            multimers.append(multimer)
+            yield multimer
         else:
             logging.info(f"done loading monomer {interactors[0].description}")
-            multimers.append(interactors[0])
-
-    return multimers
+            yield out[0]
 
 
 def create_custom_jobs(

@@ -237,8 +237,58 @@ def main(cfg):
                     unpaired_msa = cfg.modify_unpaired_msa,
                 )
 
+    monomer_runner = None
+    multimer_runner = None
 
-    predict_multimers(multimers, cfg, save_multimers = cfg.save_multimers)
+    run_description = ''
+    if cfg.run.dropout:
+        logging.info("Run prediction using dropout for enhanced sampling")
+        run_description = run_description+'_dropout'
+    if not cfg.run.cluster_profile:
+        logging.info("Run preddiction without cluster profiling")
+        run_description = run_description+'_noclusterprofile'
+    if cfg.run.max_seq is not None and cfg.run.max_extra_seq is not None:
+        run_description = run_description+f'_MSA-subsampling-{cfg.run.max_seq}-{cfg.run.max_extra_seq}'
+
+    for obj in multimers:
+        if isinstance(obj, MultimericObject) and multimer_runner is None:
+            n = 5
+            model_runners = create_colabfold_runners(
+                                f'_multimer_{cfg.weights.multimer_type}',
+                                n,
+                                True,
+                                cfg.run.num_cycle_multi,
+                                cfg.weights.data_dir,
+                                cfg.run.max_seq,
+                                cfg.run.max_extra_seq,
+                                cfg.run.num_predictions_per_model,
+                                cfg.run.dropout,
+                                cfg.run.cluster_profile,
+                                cfg.save_all)
+            random_seed = random.randrange(sys.maxsize // len(model_runners))
+        elif not isinstance(obj, MultimericObject) and monomer_runner is None:
+            n = 2 if cfg.run.only_template else 5
+            model_runners = create_colabfold_runners(
+                                cfg.weights.monomer_type,
+                                n,
+                                cfg.run.use_templates,
+                                cfg.run.num_cycle_mono,
+                                cfg.weights.data_dir,
+                                cfg.run.max_seq,
+                                cfg.run.max_extra_seq,
+                                cfg.run.num_predictions_per_model,
+                                cfg.run.dropout,
+                                cfg.run.cluster_profile,
+                                cfg.save_all)
+            random_seed = random.randrange(sys.maxsize // len(model_runners))
+        obj.description = obj.description+run_description
+        predict_individual_jobs(
+                obj,
+                cfg,
+                model_runners=model_runners,
+                random_seed=random_seed,
+                save_multimer=cfg.save_multimers,
+            )
 
 
 if __name__ == "__main__":

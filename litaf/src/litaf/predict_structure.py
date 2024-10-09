@@ -181,6 +181,7 @@ def predict(
     if allow_resume:
         logging.info("Checking for existing results")
         ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START, ranking_confidence_score_type = get_existing_model_info(output_dir, model_runners_and_params)
+        #ADD A WAY TO RESUME ALL TIMINGS
         #pdb.set_trace()
         if (os.path.exists(ranking_output_path) and 
             len(unrelaxed_pdbs) == len(model_runners_and_params)):
@@ -387,7 +388,7 @@ def run_optimization(model_runner, model_name, max_iter, msa_params,
         prediction_result, _ = model_runner.predict(
             processed_feature_dict, random_seed=model_random_seed,
             return_representations=return_representations,
-            callback=callback
+            callback=callback, to_numpy = False,
         )
         return 1/prediction_result["ranking_confidence"], prediction_result
 
