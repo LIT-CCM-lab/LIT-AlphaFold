@@ -72,7 +72,7 @@ def create_template_dbs(cfg):
 
     # Path to pdb70 database
     if cfg.db.pdb70_database_path is None:
-        pdb70_database_path = os.path.join(cfg.db.data_dir, "pdb70", "pdb70")
+        cfg.db.pdb70_database_path = os.path.join(cfg.db.data_dir, "pdb70", "pdb70")
 
 def create_msa_dbs(cfg):
 
@@ -338,8 +338,7 @@ def main(cfg):
 
     if cfg.db.data_dir is not None:
         create_template_dbs(cfg)
-        if not cfg.run.use_mmseqs2_templates:
-            create_msa_dbs(cfg)
+        create_msa_dbs(cfg)
 
     elif cfg.run.use_mmseqs2 is False:
         raise ValueError('No indication for genetic database, \

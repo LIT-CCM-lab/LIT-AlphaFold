@@ -1,4 +1,5 @@
 num_cycle_mono: 5
+num_cycle_multi: 20
 max_seq: 16
 max_extra_seq: 32
 num_predictions_per_model: 10
@@ -7,3 +8,4 @@ cluster_profile: True
 only_template: False
 use_templates: False
 remove_template_msa: False
+multimer_templates: null #replace with 'all' or 'inter'

@@ -12,7 +12,7 @@ weights:
   monomer_type: _ptm
 
 
-mode: custom
+mode: 'custom' # 'custom', 'pulldown', 'all_vs_all', 'homo-oligomer'
 output_path: Protein_structures
 monomer_objects_dir: ???
 input_file: ???
@@ -20,6 +20,7 @@ save_multimers: False
 compress_multimers: False
 benchmark: False
 logger_file: alphafold_prediction
+optimize: False
 
 save_all: False
 models_to_relax: null #'best', 'all'
@@ -27,6 +28,7 @@ allow_resume: True
 remove_pair_msa: False
 remove_unpaired_msa: False
 shuffle_templates: False
+multi_monomer: False
 
 mutate_msa_file: null
 remove_msa_region: null

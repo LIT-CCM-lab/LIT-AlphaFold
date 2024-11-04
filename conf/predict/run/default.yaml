@@ -8,3 +8,4 @@ cluster_profile: True
 only_template: False
 use_templates: True
 remove_template_msa: False
+multimer_templates: null #replace with 'all' or 'inter'

@@ -95,6 +95,8 @@ def template_filter(pdbids_chain, query):
     filter_code = list()
 
     for pdbid_chain in pdbids_chain:
+        if len(pdbid_chain) > 6:
+            pdbid_chain = pdbid_chain[:6]
         pdbid = pdbid_chain[:4].upper()
         file_name = pdbid_chain.upper()
         if isinstance(pdbid_chain, bytes):
@@ -103,13 +105,15 @@ def template_filter(pdbids_chain, query):
         if file_name.upper() in check_duplicates:
             continue
         elif pdbid in query.get('excluded_pdb', []):
-            excluded_hits.append(file_name)
+            excluded_hits.append(pdbid_chain)
             continue
         elif pdbid not in query.get('subset_pdb', []) and query.get('subset_pdb'):
-            excluded_hits.append(file_name)
+            excluded_hits.append(pdbid_chain)
             continue
         filter_code.append(pdbid_chain)
         check_duplicates.add(file_name)
+    import pdb
+    pdb.set_trace()
 
     if search_function:
         filtered_hits, excluded_query_hits = search_function(filter_code, query, all_entries)

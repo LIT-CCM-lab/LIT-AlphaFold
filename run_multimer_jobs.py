@@ -84,7 +84,8 @@ def predict_individual_jobs(
         fasta_name=multimer_object.description,
         models_to_relax=cfg.models_to_relax,
         seqs=multimer_object.input_seqs,
-        allow_resume=cfg.allow_resume
+        allow_resume=cfg.allow_resume,
+        #optimize=cfg.optimize
     )
 
 
@@ -235,10 +236,12 @@ def main(cfg):
                     shuffle_templates = cfg.shuffle_templates,
                     paired_msa = cfg.modify_paired_msa,
                     unpaired_msa = cfg.modify_unpaired_msa,
+                    multimer_templates = cfg.run.multimer_templates,
+                    multi_monomer = cfg.multi_monomer
                 )
 
-    monomer_runner = None
-    multimer_runner = None
+    no_monomer_runner = True
+    no_multimer_runner = True
 
     run_description = ''
     if cfg.run.dropout:
@@ -251,7 +254,7 @@ def main(cfg):
         run_description = run_description+f'_MSA-subsampling-{cfg.run.max_seq}-{cfg.run.max_extra_seq}'
 
     for obj in multimers:
-        if isinstance(obj, MultimericObject) and multimer_runner is None:
+        if isinstance(obj, MultimericObject) and no_multimer_runner:
             n = 5
             model_runners = create_colabfold_runners(
                                 f'_multimer_{cfg.weights.multimer_type}',
@@ -266,7 +269,8 @@ def main(cfg):
                                 cfg.run.cluster_profile,
                                 cfg.save_all)
             random_seed = random.randrange(sys.maxsize // len(model_runners))
-        elif not isinstance(obj, MultimericObject) and monomer_runner is None:
+            no_multimer_runner = False
+        elif not isinstance(obj, MultimericObject) and no_monomer_runner:
             n = 2 if cfg.run.only_template else 5
             model_runners = create_colabfold_runners(
                                 cfg.weights.monomer_type,
@@ -281,6 +285,7 @@ def main(cfg):
                                 cfg.run.cluster_profile,
                                 cfg.save_all)
             random_seed = random.randrange(sys.maxsize // len(model_runners))
+            no_monomer_runner = False
         obj.description = obj.description+run_description
         predict_individual_jobs(
                 obj,

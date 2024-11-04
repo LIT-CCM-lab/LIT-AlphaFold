@@ -27,10 +27,12 @@ from alphafold.common import protein
 from alphafold.common import residue_constants
 from alphafold.relax import relax
 from alphafold import run_alphafold as run_af
+from alphafold.model import config
 
-#import jax
-#import jax.numpy as jnp
-#import optax
+import jax
+import jax.numpy as jnp
+import optax
+import copy
 
 RELAX_MAX_ITERATIONS = run_af.RELAX_MAX_ITERATIONS
 RELAX_ENERGY_TOLERANCE = run_af.RELAX_ENERGY_TOLERANCE
@@ -128,6 +130,7 @@ def predict(
     stop_at_score: float = 100,
     save_all: bool = False,
     compress_results: bool = True,
+    #optimize: bool = False,
 ) -> None:
     '''Run AlphaFold prediction
         Modified version of the ColabFold predict function to include the
@@ -233,6 +236,20 @@ def predict(
                                 save_pair_representations
 
         t_0 = time.time()
+        '''
+        if optimize:
+            unrelaxed_protein,ranking_confidence,ranking_confidence_score_type = run_optimization(model_runner, model_name,
+                                                                                    100,
+                                                                                    processed_feature_dict,
+                                                                                    model_random_seed,
+                                                                                    return_representations,
+                                                                                    callback,
+                                                                                    seqs, output_dir,
+                                                                                    compress_results,
+                                                                                    (len(seqs) == 1),
+                                                                                    0.9)
+        else:
+        '''
         unrelaxed_protein,ranking_confidence,ranking_confidence_score_type = run_prediction(model_runner, model_name,
                                                                                 processed_feature_dict,
                                                                                 model_random_seed,
@@ -373,43 +390,45 @@ def run_prediction(model_runner, model_name,
     return {model_name: unrelaxed_protein}, {model_name: prediction_result["ranking_confidence"].tolist()}, ranking_confidence_score_type
 
 '''
-def run_optimization(model_runner, model_name, max_iter, msa_params,
+def run_optimization(model_runner, model_name,
+                    max_iter,
                     processed_feature_dict, model_random_seed,
                     return_representations, callback, seqs, output_dir,
                     compress_results, remove_leading_feature_dimension, learning_rate):
+    #XLA_PYTHON_CLIENT_MEM_FRACTION=1
 
     msa_shape = processed_feature_dict['msa'].shape
-    processed_feature_dict['msa_shape'] = msa_shape
-    msa_params = jnp.zeros((config.model.embeddings_and_evoformer.num_msa, msa_shape[1], 23), dtype='float32') #23 classes for aa, gap, mask
+    #processed_feature_dict['msa_shape'] = msa_shape
+    msa_params = jnp.zeros((model_runner.config.model.embeddings_and_evoformer.num_msa, msa_shape[1], 23), dtype='bfloat16') #23 classes for aa, gap, mask
     optimizer = optax.adam(learning_rate)
     opt_state = optimizer.init(msa_params)
 
     def loss_fn(msa_params, processed_features_dict):
+        processed_feature_dict['msa_feat_bias'] = msa_params
         prediction_result, _ = model_runner.predict(
             processed_feature_dict, random_seed=model_random_seed,
             return_representations=return_representations,
             callback=callback, to_numpy = False,
         )
-        return 1/prediction_result["ranking_confidence"], prediction_result
+        return 100/prediction_result["ranking_confidence"], prediction_result
 
     def update(msa_params, opt_state, processed_feature_dict):
         (loss, aux), grads = jax.value_and_grad(loss_fn, has_aux=True)(msa_params, processed_feature_dict)
         updates, new_opt_state = optimizer.update(grads, opt_state)
         new_params = optax.apply_updates(msa_params, updates)
+        import pdb
+        pdb.set_trace()
         return loss, aux, new_params, new_opt_state
 
     unrelaxed_proteins = {}
     ranking_confidences = {}
 
     for i in range(max_iter):
-        if (np.array(metrics['ranking_confidence'])>confidence_threshold).sum()>=num_above_t:
-            logging.info('Confidence threshold reached.')
-            return unrelaxed_proteins
-
+        logging.info(f"Optimization iteration {i}")
         loss, aux, msa_params, opt_state = update(msa_params, opt_state, processed_feature_dict)
         unrelaxed_proteins[model_name+f'_opt_{i}'] = write_prediction_output(output_dir,
                                                                             aux,
-                                                                            processed_feature_dict
+                                                                            processed_feature_dict,
                                                                             model_name+f'_opt_{i}',
                                                                             compress_results,
                                                                             remove_leading_feature_dimension)

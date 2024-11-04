@@ -40,10 +40,11 @@ from alphafold.common import residue_constants
 from colabfold.batch import (unserialize_msa,
                             get_msa_and_templates,
                             msa_to_str,
-                            build_monomer_feature,)
+                            build_monomer_feature,
+                            mk_mock_template)
 from colabfold.utils import DEFAULT_API_SERVER
 
-from alphapulldown.utils import mk_mock_template, check_empty_templates
+from alphapulldown.utils import check_empty_templates
 
 from litaf.utils import remove_msa_for_template_aligned_regions
 from litaf.filterpdb import (filter_template_hits,
@@ -63,7 +64,17 @@ from litaf.utils import (encode_seqs,
                         plot_msa_landscape,
                         to_string_seq)
 
+from itertools import product
+
 USER_AGENT = 'LIT-AlphaFold/v1.0 https://github.com/LIT-CCM-lab/LIT-AlphaFold'
+TEMPLATE_FEATURES = ["template_all_atom_positions",
+                        "template_all_atom_masks",
+                        "template_sequence",
+                        "template_aatype",
+                        "template_confidence_scores",
+                        "template_domain_names",
+                        "template_release_date",
+                        "template_sum_probs",]
 
 
 @contextlib.contextmanager
@@ -94,7 +105,7 @@ def load_monomer_objects(monomer_dir_dict, protein_name):
     if isinstance(monomer, MultimericObject):
         return monomer
     if check_empty_templates(monomer.feature_dict):
-        monomer.feature_dict = mk_mock_template(monomer.feature_dict)
+        monomer.feature_dict.update(mk_mock_template(monomer.sequence))
     return monomer
 
 def check_existing_objects(output_dir, pickle_name):
@@ -501,7 +512,9 @@ class MonomericObject:
         else:
             new_feature_dict = self.feature_dict.copy()
 
-        new_feature_dict = mk_mock_template(new_feature_dict)
+        empty_template = mk_mock_template(self.sequence)
+
+        new_feature_dict.update(empty_template)
         
         return new_feature_dict
 
@@ -1151,13 +1164,17 @@ class MultimericObject:
 
     """
 
-    def __init__(self, interactors: list, pair_msa: bool = True) -> None:
+    def __init__(self, interactors: list,
+                pair_msa: bool = True,
+                multimer_templates: str = None,
+                max_missing_templates: int = 1) -> None:
         self.description = ""
         self.sequence = []
         self.interactors = interactors
         self.pair_msa = pair_msa
         self.chain_id_map = dict()
         self.input_seqs = []
+        self.multimeric_template = multimer_templates
         self.get_all_residue_index()
         self.create_output_name()
 
@@ -1170,6 +1187,11 @@ class MultimericObject:
                     if not inter.paired_msa:
                         missing_data.append(inter.description)
                 raise AttributeError(f"Missing paired MSA information for: {' '.join(missing_data)}")
+
+        if self.multimeric_template:
+            self.pair_templates(max_missing_templates)
+
+        self.multichain_mask = self.create_multichain_mask(intra = (self.multimeric_template == 'all'))
 
         self.create_all_chain_features()
         pass
@@ -1279,6 +1301,7 @@ class MultimericObject:
         uniprot_runner: a jackhammer runner with path to the uniprot database
         msa_pairing: boolean pairs msas or not
         """
+
         self.create_chain_id_map()
         all_chain_features = {}
         sequence_features = {}
@@ -1298,6 +1321,8 @@ class MultimericObject:
             all_chain_features=self.all_chain_features
         )
         self.feature_dict = pipeline_multimer.pad_msa(self.feature_dict, 512)
+        if self.multimeric_template:
+            self.feature_dict['multichain_mask'] = self.multichain_mask
 
     def mmseqs2_pair_msa(self):
         '''function calling the mmseqs2 webserver to retrive the multimer paired MSA
@@ -1358,3 +1383,55 @@ class MultimericObject:
                     up_dict = {f'{k}_all_seq': v for k, v in all_seq_features.items()
                                 if k in valid_feats}
                     interactor.feature_dict.update(up_dict)
+
+    def pair_templates(self, max_missing = 1):
+        '''The function finds the first relevant multimeric template which satisfies the details of the method'''
+        paired_templates = []
+        templates_pdbs = [[dom for dom in interactor.feature_dict['template_domain_names']] for interactor in self.interactors]
+        idxs = [[i for i, _ in enumerate(interactor.feature_dict['template_domain_names'])] for interactor in self.interactors]
+        if len(self.interactors) == 2:
+            max_missing = 0
+        for templates, idxs in zip(product(*templates_pdbs), product(*idxs)):
+            pdb_identity = [i[:4] == templates[0][:4] for i in templates] #this can lead to problem if the first one is incorrect
+            if sum(pdb_identity) < len(templates)-max_missing:
+                continue
+            if len(set([i[4:] for i in templates])) != len(templates):
+                continue
+            logging.info("Found multimer template")
+            output_idxs = [idxs[i] if id_bool else None for i, id_bool in enumerate(pdb_identity) ]
+            break
+
+        for interactor, out_id in zip(self.interactors, output_idxs):
+            if out_id is None:
+                template_features = mk_mock_template(interactor.sequence)
+            else:
+                template_features = {feat: np.array([interactor.feature_dict.get(feat, [0 for _ in range(out_id+1)])[out_id]]) for feat in TEMPLATE_FEATURES}
+            interactor.feature_dict.update(template_features)
+
+    def create_multichain_mask(self, intra = True):
+        """a method to create pdb_map for further multitemplate modeling"""
+        #copyed from AlphaPulldown
+        pdb_map = []
+        no_gap_map = []
+        for interactor in self.interactors:
+            temp_length = len(interactor.sequence)
+            pdb_map.extend(
+                [interactor.feature_dict['template_domain_names'][0]] * temp_length)
+            has_no_gaps = [True] * temp_length
+            # for each template in the interactor, check for gaps in sequence
+            for template_sequence in interactor.feature_dict['template_sequence']:
+                is_not_gap = [
+                    s != '-' for s in template_sequence.decode("utf-8").strip()]
+                # False if any of the templates has a gap in this position
+                has_no_gaps = [a and b for a,
+                               b in zip(has_no_gaps, is_not_gap)]
+            no_gap_map.extend(has_no_gaps)
+        multichain_mask = np.zeros((len(pdb_map), len(pdb_map)), dtype=int)
+        for index1, id1 in enumerate(pdb_map):
+            for index2, id2 in enumerate(pdb_map):
+                # and (no_gap_map[index1] and no_gap_map[index2]):
+                if (id1[:4] == id2[:4]):
+                    if id1 != id2 or intra:
+                        multichain_mask[index1, index2] = 1
+
+        return multichain_mask

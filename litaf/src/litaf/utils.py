@@ -13,7 +13,7 @@ import py3Dmol
 import numpy as np
 import matplotlib.pyplot as plt
 from alphafold.data import parsers
-from colabfold.alphafold.models import load_models_and_params
+from litaf.alphafold.model.utils import load_models_and_params
 from colabfold.colabfold import pymol_color_list, alphabet_list
 from alphapulldown.utils import parse_fasta
 from alphafold.common import residue_constants

@@ -91,7 +91,8 @@ def create_interactors(entries,
             remove_msa_region,
             shuffle_templates,
             paired_msa = False,
-            unpaired_msa = True) -> list:
+            unpaired_msa = True,
+            multimonomer = False) -> list:
     """
     Generates and modifies monomeric objects used for prediction
 
@@ -126,7 +127,7 @@ def create_interactors(entries,
     monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
     for entry in entries:
         total = 0
-        interactors_list.append()
+        interactors_list.append([])
         for e in entry:
             total += e.get('n_units', 1)
             e['remove_msa'] = e.get('remove_msa', remove_msa)
@@ -294,6 +295,8 @@ def create_multimer_objects(
     shuffle_templates: bool = False,
     paired_msa=False,
     unpaired_msa=True,
+    multimer_templates=False,
+    multi_monomer=False,
     ) -> list:
     """
     A function to create multimer objects
@@ -355,15 +358,15 @@ def create_multimer_objects(
                 out.append(copy.deepcopy(all_monomers[interactor]))
                 if e.get('monomer'):
                     out[-1].description = e.get('monomer')
-        if len(out) > 1:
+        if len(out) > 1 or multi_monomer:
             multimer = MultimericObject(
                 interactors=out,
-                pair_msa=pair_msa)
+                pair_msa=pair_msa,
+                multimer_templates=multimer_templates)
             logging.info(f"done creating multimer {multimer.description}")
             yield multimer
-
         else:
-            logging.info(f"done loading monomer {interactors[0].description}")
+            logging.info(f"done loading monomer {out[0].description}")
             yield out[0]
 
 
@@ -379,6 +382,8 @@ def create_pulldown(
     shuffle_templates: bool = False,
     paired_msa=False,
     unpaired_msa=True,
+    multimer_templates=False,
+    multi_monomer=False,
     ) -> list:
     '''
     Create MultimericObjects from pulldown style input
@@ -409,13 +414,14 @@ def create_pulldown(
     ------
     MultimericObject and MonomericObject for prediction: list
     '''
-    bait_proteins = read_proteins(proteins_list[0])
+    bait_proteins = read_custom(proteins_list[0])
     candidate_proteins = []
     for file in proteins_list[1:]:
-        candidate_proteins.append(read_proteins(file))
+        candidate_proteins.append(read_custom(file))
 
-    all_protein_pairs = list(
-        itertools.product(*[bait_proteins, *candidate_proteins]))
+    products = itertools.product(*[bait_proteins, *candidate_proteins])
+
+    all_protein_pairs = [[c for c in itertools.chain(*p)] for p in products]
 
     return create_multimer_objects(
             data = all_protein_pairs,
@@ -428,7 +434,8 @@ def create_pulldown(
             remove_templates = remove_templates,
             shuffle_templates=shuffle_templates,
             unpaired_msa=unpaired_msa,
-            paired_msa=paired_msa)
+            paired_msa=paired_msa,
+            multimer_templates=multimer_templates)
 
 
 def create_all_vs_all(
@@ -443,6 +450,8 @@ def create_all_vs_all(
     shuffle_templates: bool = False,
     paired_msa=False,
     unpaired_msa=True,
+    multimer_templates=False,
+    multi_monomer=False,
     ) -> dict:
     """Create MultimericObjects from all vs all input
     i.e all pairings of proteins are evaluated
@@ -474,8 +483,9 @@ def create_all_vs_all(
     """
     all_proteins = []
     for file in proteins_list:
-        all_proteins = all_proteins+read_proteins(file)
-    all_possible_pairs = list(itertools.combinations(all_proteins, 2))
+        all_proteins = all_proteins+read_custom(file)
+    products = list(itertools.combinations(all_proteins, 2))
+    all_possible_pairs = [[c for c in itertools.chain(*p)] for p in products]
 
     return create_multimer_objects(
                             all_possible_pairs,
@@ -488,7 +498,8 @@ def create_all_vs_all(
                             remove_templates = remove_templates,
                             shuffle_templates=shuffle_templates,
                             unpaired_msa=unpaired_msa,
-                            paired_msa=paired_msa)
+                            paired_msa=paired_msa,
+                            multimer_templates=multimer_templates)
 
 
 
@@ -504,6 +515,8 @@ def create_homooligomers(
     shuffle_templates: bool = False,
     paired_msa=False,
     unpaired_msa=True,
+    multimer_templates=False,
+    multi_monomer=False,
     ) -> list:
     """Create MultimericObjects for homoligomers
 
@@ -561,7 +574,8 @@ def create_homooligomers(
         if len(out) > 1:
             multimer = MultimericObject(
                 interactors=out,
-                pair_msa=False)
+                pair_msa=False,
+                multimer_templates=multimer_templates)
             multimer.description = f"{out[0].description}_homo_{len(interactors)}er"
             logging.info(f"done creating multimer {multimer.description}")
             yield multimer
@@ -582,6 +596,8 @@ def create_custom_jobs(
     shuffle_templates: bool = False,
     paired_msa=False,
     unpaired_msa=True,
+    multimer_templates=False,
+    multi_monomer=False
     ) -> list:
     """
     Create MultimericObjects using custom multimer input
@@ -627,4 +643,6 @@ def create_custom_jobs(
             remove_templates = remove_templates,
             shuffle_templates=shuffle_templates,
             unpaired_msa=unpaired_msa,
-            paired_msa=paired_msa)
+            paired_msa=paired_msa,
+            multimer_templates=multimer_templates,
+            multi_monomer=multi_monomer)
