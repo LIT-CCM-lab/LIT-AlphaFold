@@ -82,8 +82,8 @@ def template_filter(pdbids_chain, query):
     database_search = {'GPCRdb_r': query_gpcrdb_r,
                         'GPCRdb_g': query_gpcrdb_g,
                         'KLIFS': query_klifs,
-                        'RCSB': query_rcsb}
-    #search_function = database_search[query['database']] if query.get('database') in database_search else empty_search
+                        'RCSB': query_rcsb,
+                        'ChannelsDB': query_channelsdb}
     query, all_entries = query
     search_function = database_search.get(query.get('database'))
     
@@ -112,8 +112,6 @@ def template_filter(pdbids_chain, query):
             continue
         filter_code.append(pdbid_chain)
         check_duplicates.add(file_name)
-    import pdb
-    pdb.set_trace()
 
     if search_function:
         filtered_hits, excluded_query_hits = search_function(filter_code, query, all_entries)
@@ -204,7 +202,7 @@ def query_channelsdb(pdbid_chains, query, *args):
     rj = {}
     for p in pdbid_chains:
         url = f"https://channelsdb2.biodata.ceitec.cz/api/channels/pdb/{p.split('_')[0]}"
-        r = request.get(url)
+        r = requests.get(url)
         rj[p] = r.json()
 
     return query_database(pdbid_chains, query, rj, compare_channelsdb_entry)
@@ -251,14 +249,11 @@ def query_database(pdbid_chains, query, all_entries, function):
     return selected, excluded
 
 def compare_klifs_entry(pdbid, chainid, query, entry):
-    special = ['resolution', 'salt_bridge_17_24']
+    special = ['salt_bridge_17_24']
     for key, item in query.items():
         if item is None:
             continue
         if key in special:
-            if key == 'resoultion':
-                if entry['resolution'] > item:
-                    return False
             if key == 'salt_bridge_17_24':
                 distance = float(entry['salt_bridge_17_24'])
                 if item and (distance == -1 or distance > 4.5):
@@ -279,25 +274,27 @@ def compare_rcsb_entry(pdbid, chainid, query, entry):
         if key == 'holo' and item and len(entry.get('rcsb_ligand_neighbors', [])) == 0:
             return False
         if key == 'HET':
-            ligs = [l for l in entry['rcsb_ligand_neighbors']['ligand_comp_id']]
+            ligs = [l['ligand_comp_id'] for l in entry['rcsb_ligand_neighbors']]
             if all([l not in item for l in ligs]):
                 return False
         if key == 'exclude_HET':
-            ligs = [l for l in entry['rcsb_ligand_neighbors']['ligand_comp_id']]
+            ligs = [l['ligand_comp_id'] for l in entry['rcsb_ligand_neighbors']]
             if any([l in item for l in ligs]):
                 return False
         if key == 'protein_class':
             for annotation in entry['rcsb_polymer_instance_annotation']:
                 if annotation['provenance_source'] not in item['source']:
                     continue
-                if annotation['name'] not in item['name']:
-                    return False
+                for level in annotation:
+                    if level['name'] not in item['name']:
+                        return False
         if key == 'exclude_protein_class':
             for annotation in entry['rcsb_polymer_instance_annotation']:
                 if annotation['provenance_source'] not in item['source']:
                     continue
-                if annotation['name'] in item['name']:
-                    return False
+                for level in annotation:
+                    if level['name'] in item['name']:
+                        return False
     return True
 
 
@@ -370,6 +367,7 @@ def compare_gpcrdb_g_entry(pdbid, chainid, query, entry):
     special = ['publication_date',
                 'resolution',
                 'excluded_protein',
+                'subset_protein',
                 'species']
 
     if entry.get("signalling_protein", None) is None:
@@ -378,6 +376,7 @@ def compare_gpcrdb_g_entry(pdbid, chainid, query, entry):
     for e_values in entry["signalling_protein"]["data"].values:
         if e_values["chain"] == chainid:
             species = e_values["entry_name"].split('_')[1]
+            protein = e_values["entry_name"].split('_')[0]
     if species is None:
         return False
     for key, item in query.items():
@@ -393,22 +392,23 @@ def compare_gpcrdb_g_entry(pdbid, chainid, query, entry):
                 if entry['resolution'] > item:
                     return False
             elif key == 'excluded_protein':
-                if entry['excluded_protein'] in item:
+                if protein in item:
+                    return False
+            elif key == 'subset_protein':
+                if protein not in item:
                     return False
             elif key == 'species':
-                if species != item:
+                if species not in item:
                     return False
-        elif key in entry:
-            if entry[key] not in item:
-                return False
     return True
 
 def compare_channelsdb_entry(pdbid, chainid, query, entry):
     #future implementation should offer the possibility to look at the channel profile, but now I do not have time to do it
     flag = False
     #if the structure is missing annotated channels it is discarded
-    if entry.get("details"):
+    if entry.get("detail"):
         logging.info(f"PDBID: {pdbid} not in ChannelsDB 2.0")
+        return False
     for c_key, channels in entry["Channels"].items():
         query_key = c_key.split('_')[0]
         if query_key not in query or len(channels) == 0:
@@ -422,10 +422,10 @@ def compare_channelsdb_entry(pdbid, chainid, query, entry):
                 if key == 'Type':
                     continue
                 if key.startswith('min_'):
-                    if channel['Properties'].get(key, nan) < item:
+                    if channel['Properties'].get(key.split('_')[1], nan) < item:
                         return False
                 elif key.startswith('max_'):
-                    if channel['Properties'].get(key, nan) > item:
+                    if channel['Properties'].get(key.split('_')[1], nan) > item:
                         return False
                 else:
                     if channel['Properties'].get(key, nan) != item:

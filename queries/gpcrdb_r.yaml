@@ -1,0 +1,58 @@
+'database': 'GPCRdb_r'
+'excluded_pdb': [] # Common filed to all filter files
+'subset_pdb': []   # Common filed to all filter files
+
+# list fields
+
+'signalling_protein': ['G protein', 'Arrestin']
+'protein':
+   - 'cxcr4_human' # All protins have their UniProt name in lowercase letters followed by the species
+'excluded_protein':
+   - 'ccr5_human' # All protins have their UniProt name in lowercase letters followed by the species
+'ligand_function':
+   - 'Agonist'
+   - 'Agonist (partial)'
+   - 'Partial agonist'
+   - 'Allosteric agonist'
+   - 'Antagonist'
+   - 'Allosteric antagonist'
+   - 'Inverse agonist'
+   - 'Ago-PAM' #Agonist and positive allosteric modulator
+   - 'PAM' #Positive allosteric modulator
+   - 'NAM' #Negative allosteric modulator
+   - 'unknown'
+'class': 
+   - 'Class A (Rhodopsin)'
+   - 'Class B1 (Secretin)'
+   - 'Class B2 (Adhesion)'
+   - 'Class C (Glutamate)'
+   - 'Class D1 (Ste2-like fungal pheromone)'
+   - 'Class F (Frizzled)'
+   - 'Class T (Taste 2)'
+'species':
+   - 'Homo sapiens'
+   - 'Xenopus laevis' #African clawed frog
+   - 'Bos taurus' #Bovine
+   - 'Canis lupus familiaris' #Dog
+   - 'Cavia porcellus' #Guinea-pig
+   - 'Hasarius adansoni'
+   - 'Todarodes pacificus' #Japanese flying squid
+   - 'Mus musculus' #Mouse
+   - 'Oryctolagus cuniculus' #Rabbit
+   - 'Rattus norvegicus' #Rat
+   - 'Human cytomegalovirus'
+   - 'Saccharomyces cerevisiae'
+   - 'Epstein-Barr virus'
+   - 'Meleagris gallopavo' #Wild turkey
+   - 'Danio rerio' #Zebrafish
+'state': ['Active', 'Inactive', 'Intermediate', 'Other']
+'type': ['Electron microscopy', 'X-ray diffraction']
+
+# boolean fields
+
+'apo': False # True
+
+# single values fields
+
+'publication_date': '2100-01-01' #YYYY-MM-DD
+'resolution': 10.0

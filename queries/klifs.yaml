@@ -1,0 +1,15 @@
+'database': 'KLIFS'
+'excluded_pdb': [] # Common filed to all filter files
+'subset_pdb': []   # Common filed to all filter files
+
+'DFG':
+ - 'out'
+ - 'out-like'
+ - 'in'
+
+'ac_helix':
+  - 'out'
+  - 'in'
+
+'salt_bridge_17_24': True #False
+

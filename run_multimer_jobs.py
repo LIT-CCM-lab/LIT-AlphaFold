@@ -227,7 +227,7 @@ def main(cfg):
     multimers = create_functions[cfg.mode](
                     cfg.input_file,
                     cfg.monomer_objects_dir,
-                    pair_msa=not cfg.remove_pair_msa,
+                    pair_msa=not cfg.run.remove_pair_msa,
                     remove_msa=cfg.remove_unpaired_msa,
                     remove_template_msa=cfg.run.remove_template_msa,
                     mutate_msa = mutate_msa,
@@ -287,6 +287,8 @@ def main(cfg):
             random_seed = random.randrange(sys.maxsize // len(model_runners))
             no_monomer_runner = False
         obj.description = obj.description+run_description
+        import pdb
+        pdb.set_trace()
         predict_individual_jobs(
                 obj,
                 cfg,

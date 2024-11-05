@@ -1,2 +1,4 @@
 use_mmseqs2: True
 use_mmseqs2_templates: True
+paired_msa: True
+db_preset: full_dbs

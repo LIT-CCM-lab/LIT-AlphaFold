@@ -1,0 +1,36 @@
+'database': 'ChannelsDB'
+'excluded_pdb': [] # Common filed to all filter files
+'subset_pdb': []   # Common filed to all filter files
+
+# In the query it is necessary to indicate how the channel was identified, here as an example only the reviewed channels are used for the query
+# The channel Type is not a mandatory field
+# For all the properties it is possible to give an exact value to consider, by just giving the name of the property
+# Or it is possible to set a lower and upper threshold by adding min_ and max_ before the name of the property respectively
+'ReviewedChannels':
+  'Type':   #See https://channelsdb2.biodata.ceitec.cz/documentation.html#db-nomenclature for more information on channel nomenclature
+    - 'Channel'
+    - 'Tunnel'
+    - 'Pore'
+    - 'Solvent tunnel'
+    - 'Substrate tunnel'
+    - 'Substrate/Product tunnel'
+    - 'Product tunnel'
+    - 'Water channel'
+    - 'Ion channel'
+    - 'Hydrophobic channel'
+    - 'Peptide channel'
+    - 'Nucleotide channel'
+  'Charge': 0
+  'min_Charge': 0
+  'max_Charge': 0
+  'NumPositives': 0
+  'NumNegatives': 0
+  'Hydrophobicity': 0
+  'Hydropathy': 0
+  'Polarity': 0
+  'Mutability': 0
+
+'CSATunnels'
+'CofactorTunnels'
+'CognateTunnels'
+'AlphaFillTunnels'

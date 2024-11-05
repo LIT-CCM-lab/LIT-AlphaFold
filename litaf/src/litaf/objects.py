@@ -50,7 +50,8 @@ from litaf.utils import remove_msa_for_template_aligned_regions
 from litaf.filterpdb import (filter_template_hits,
                                 filter_template_features,
                                 generate_filter,)
-from litaf.pipeline import make_msa_features, DataPipeline
+from litaf.alphafold.data.pipeline import make_msa_features, DataPipeline
+from litaf.alphafold.data.msa_pairing import merge_chain_features
 from litaf.datatypes import FeatureDict
 from litaf.rename import *
 
@@ -66,15 +67,16 @@ from litaf.utils import (encode_seqs,
 
 from itertools import product
 
-USER_AGENT = 'LIT-AlphaFold/v1.0 https://github.com/LIT-CCM-lab/LIT-AlphaFold'
+USER_AGENT = 'LIT-AlphaFold/v1.1 https://github.com/LIT-CCM-lab/LIT-AlphaFold'
 TEMPLATE_FEATURES = ["template_all_atom_positions",
                         "template_all_atom_masks",
                         "template_sequence",
                         "template_aatype",
-                        "template_confidence_scores",
+                        #"template_confidence_scores",
                         "template_domain_names",
-                        "template_release_date",
+                        #"template_release_date",
                         "template_sum_probs",]
+
 
 
 @contextlib.contextmanager
@@ -1190,8 +1192,7 @@ class MultimericObject:
 
         if self.multimeric_template:
             self.pair_templates(max_missing_templates)
-
-        self.multichain_mask = self.create_multichain_mask(intra = (self.multimeric_template == 'all'))
+            self.multichain_mask = self.create_multichain_mask(intra = (self.multimeric_template == 'all'))
 
         self.create_all_chain_features()
         pass
@@ -1280,10 +1281,11 @@ class MultimericObject:
             pair_msa_sequences=pair_msa_sequences,
             max_templates=MAX_TEMPLATES,
             )
-        np_example = msa_pairing.merge_chain_features(
+        np_example = merge_chain_features(
             np_chains_list=np_chains_list,
             pair_msa_sequences=pair_msa_sequences,
             max_templates=MAX_TEMPLATES,
+            pair_homomers=self.pair_msa and pair_msa_sequences
         )
         np_example = feature_processing.process_final(np_example)
         return np_example
@@ -1397,7 +1399,7 @@ class MultimericObject:
                 continue
             if len(set([i[4:] for i in templates])) != len(templates):
                 continue
-            logging.info("Found multimer template")
+            logging.info(f"Found multimer template {templates[0][:4].decode('utf-8')}")
             output_idxs = [idxs[i] if id_bool else None for i, id_bool in enumerate(pdb_identity) ]
             break
 
@@ -1406,6 +1408,8 @@ class MultimericObject:
                 template_features = mk_mock_template(interactor.sequence)
             else:
                 template_features = {feat: np.array([interactor.feature_dict.get(feat, [0 for _ in range(out_id+1)])[out_id]]) for feat in TEMPLATE_FEATURES}
+                template_features['template_confidence_score'] = interactor.feature_dict.get('template_confidence_score')
+                template_features['template_release_date'] = interactor.feature_dict.get('template_release_date')
             interactor.feature_dict.update(template_features)
 
     def create_multichain_mask(self, intra = True):
@@ -1429,7 +1433,6 @@ class MultimericObject:
         multichain_mask = np.zeros((len(pdb_map), len(pdb_map)), dtype=int)
         for index1, id1 in enumerate(pdb_map):
             for index2, id2 in enumerate(pdb_map):
-                # and (no_gap_map[index1] and no_gap_map[index2]):
                 if (id1[:4] == id2[:4]):
                     if id1 != id2 or intra:
                         multichain_mask[index1, index2] = 1

@@ -9,3 +9,4 @@ only_template: False
 use_templates: True
 remove_template_msa: False
 multimer_templates: 'all' #replace with 'all' or 'inter'
+remove_pair_msa: True

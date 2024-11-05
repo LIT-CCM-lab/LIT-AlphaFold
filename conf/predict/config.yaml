@@ -25,7 +25,6 @@ optimize: False
 save_all: False
 models_to_relax: null #'best', 'all'
 allow_resume: True
-remove_pair_msa: False
 remove_unpaired_msa: False
 shuffle_templates: False
 multi_monomer: False

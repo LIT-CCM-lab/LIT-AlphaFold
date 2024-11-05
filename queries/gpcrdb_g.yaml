@@ -1,0 +1,25 @@
+'database': 'GPCRdb_r'
+'excluded_pdb': [] # Common filed to all filter files
+'subset_pdb': []   # Common filed to all filter files
+
+# list fields
+
+'species':
+  - 'human'
+  - 'rat'
+  - 'bovin'
+
+'excluded_protein':
+  - 'gnai1'
+  - 'gbb1'
+  - 'gbg2'
+
+'subset_protein':
+  - 'gnai1'
+  - 'gbb1'
+  - 'gbg2'
+
+# single values fields
+
+'publication_date': '2100-01-01' #YYYY-MM-DD
+'resolution': 10.0

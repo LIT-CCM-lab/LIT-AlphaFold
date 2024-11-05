@@ -9,3 +9,4 @@ only_template: False
 use_templates: True
 remove_template_msa: False
 multimer_templates: null
+remove_pair_msa: False

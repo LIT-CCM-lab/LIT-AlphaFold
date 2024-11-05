@@ -25,7 +25,6 @@ from omegaconf import OmegaConf
 
 from alphafold.data.tools import hmmsearch, hhsearch
 from alphafold.data import templates
-from alphafold import run_alphafold as run_af
 
 from colabfold.utils import DEFAULT_API_SERVER
 from colabfold.batch import mk_hhsearch_db
@@ -40,8 +39,8 @@ from litaf.objects import (MonomericObject,
                             load_monomer_objects,
                             check_existing_objects)
 from litaf.filterpdb import load_template_filter
-from litaf.pipeline import DataPipeline
 from litaf.utils import setup_logging, iter_seqs
+from litaf.alphafold.data.pipeline import DataPipeline
 
 @contextlib.contextmanager
 def output_meta_file(file_path):

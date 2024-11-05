@@ -1,0 +1,29 @@
+'database': 'RCSB'
+'excluded_pdb': [] # Common filed to all filter files
+'subset_pdb': []   # Common filed to all filter files
+
+'apo': False #True
+'holo': False #True
+
+# Select/exclude structures where a ligand with the given HET code is present
+'HET':
+  - "HOH"
+'exclude_HET':
+  - "HOH"
+
+# Select/exclude structure based on the evolutionary classification for the protein
+'protein_class':
+  'source':
+    - 'CATH'
+    - 'SCOP2B'
+    - 'ECOD'
+  'name':
+    - 'Rhodopsin 7-helix transmembrane proteins' #see https://www.cathdb.info/browse/tree
+    - 'G protein-coupled receptor-like' #see https://scop.berkeley.edu/ver=2.08
+    - '7tm_1_1' #see http://prodata.swmed.edu/ecod/complete/
+
+'excluded_protein_class':
+  'source':
+    - 'CATH'
+  'name':
+    - 'Rhodopsin 7-helix transmembrane proteins'
