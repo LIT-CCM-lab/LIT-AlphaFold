@@ -287,8 +287,6 @@ def main(cfg):
             random_seed = random.randrange(sys.maxsize // len(model_runners))
             no_monomer_runner = False
         obj.description = obj.description+run_description
-        import pdb
-        pdb.set_trace()
         predict_individual_jobs(
                 obj,
                 cfg,

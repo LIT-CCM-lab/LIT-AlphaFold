@@ -10,13 +10,13 @@ Package containing the code to run LIT-AF, the Laboratoire d'Innovation Therapeu
 * *pipeline*, modified AF data pipeline functions
 '''
 import litaf
-import litaf.create_input
-import litaf.objects
-import litaf.predict_structure
-import litaf.filterpdb
-import litaf.utils
-import litaf.datatypes
-import litaf.pipeline
+#import litaf.create_input
+#import litaf.objects
+#import litaf.predict_structure
+#import litaf.filterpdb
+#import litaf.utils
+#import litaf.datatypes
+#import litaf.pipeline
 #import litaf.alphafold.model.utils
 #import litaf.alphafold.model.model
 #import litaf.alphafold.model.module_multimer

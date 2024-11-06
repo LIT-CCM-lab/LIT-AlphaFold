@@ -29,10 +29,9 @@ from alphafold.relax import relax
 from alphafold import run_alphafold as run_af
 from alphafold.model import config
 
-import jax
-import jax.numpy as jnp
-import optax
-import copy
+#import jax
+#import jax.numpy as jnp
+#import optax
 
 RELAX_MAX_ITERATIONS = run_af.RELAX_MAX_ITERATIONS
 RELAX_ENERGY_TOLERANCE = run_af.RELAX_ENERGY_TOLERANCE

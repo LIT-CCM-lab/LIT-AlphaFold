@@ -16,3 +16,5 @@ dependencies:
   - pip
   - jupyter
   - polyleven
+  - hydra-core
+  - scikit-learn
