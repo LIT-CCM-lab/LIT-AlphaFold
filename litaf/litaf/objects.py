@@ -1285,7 +1285,7 @@ class MultimericObject:
             np_chains_list=np_chains_list,
             pair_msa_sequences=pair_msa_sequences,
             max_templates=MAX_TEMPLATES,
-            pair_homomers=self.pair_msa and pair_msa_sequences
+            pair_homomers=self.pair_msa
         )
         np_example = feature_processing.process_final(np_example)
         return np_example
