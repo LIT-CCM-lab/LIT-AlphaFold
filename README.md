@@ -110,7 +110,7 @@ apptainer build litaf.sif litaf.def
 Afterwards you can use the container to run LIT-AlphaFold, without the need to setup the environement.
 
 ```console
-apptainer run --nv LIT-AlphaFold_script.py
+apptainer run --nv litaf.sif LIT-AlphaFold_script.py
 ```
 
 ## How to use
